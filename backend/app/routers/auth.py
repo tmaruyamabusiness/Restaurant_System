@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, TokenResponse, TokenData
+from app.schemas.auth import LoginRequest, TokenResponse, TokenData, UserInfo
 from app.schemas.user import UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -72,7 +72,7 @@ async def get_optional_user(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.username == data.username))
+    result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -80,7 +80,14 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
 
     token = create_access_token({"sub": str(user.id), "username": user.username, "role": user.role.value})
-    return TokenResponse(access_token=token)
+    user_info = UserInfo(
+        id=str(user.id),
+        name=user.username,
+        email=user.email,
+        role=user.role.value,
+        active=user.is_active,
+    )
+    return TokenResponse(access_token=token, user=user_info)
 
 
 @router.post("/logout")

@@ -2,13 +2,22 @@ from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
+
+
+class UserInfo(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    active: bool
 
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: UserInfo
 
 
 class TokenData(BaseModel):
