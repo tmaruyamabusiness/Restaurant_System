@@ -38,8 +38,12 @@ class SeatResponse(BaseModel):
     id: uuid.UUID
     seat_number: str
     seat_type: SeatType
+    number: str = ""
+    type: str = ""
+    status: str = "VACANT"
     capacity: int
     is_active: bool
+    active: bool = True
     sort_order: int
     current_session: Optional[SeatSessionResponse] = None
     created_at: datetime
