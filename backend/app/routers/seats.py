@@ -40,6 +40,12 @@ async def list_seats(db: AsyncSession = Depends(get_db)):
     return [build_seat_response(s) for s in seats]
 
 
+@router.get("/{seat_id}")
+async def get_seat(seat_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    seat = await seat_service.get_seat_by_id(db, seat_id)
+    return build_seat_response(seat)
+
+
 @router.post("", response_model=SeatResponse)
 async def create_seat(data: SeatCreate, db: AsyncSession = Depends(get_db)):
     seat = await seat_service.create_seat(db, data)
