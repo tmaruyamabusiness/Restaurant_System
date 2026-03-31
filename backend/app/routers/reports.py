@@ -11,14 +11,12 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 @router.get("/daily")
 async def daily_report(
-    date: date = Query(default=None, alias="date", description="Date in YYYY-MM-DD format"),
-    report_date: date = Query(default=None, description="Date in YYYY-MM-DD format (legacy)"),
+    report_date: date = Query(default=None, alias="date", description="Date in YYYY-MM-DD format"),
     db: AsyncSession = Depends(get_db),
 ):
-    target_date = date or report_date
+    target_date = report_date
     if target_date is None:
-        from datetime import date as date_cls
-        target_date = date_cls.today()
+        target_date = date.today()
     return await report_service.daily_report(db, target_date)
 
 
