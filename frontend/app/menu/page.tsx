@@ -160,15 +160,15 @@ export default function MenuManagementPage() {
   return (
     <div>
       <Header
-        title="Menu Management"
-        subtitle={`${categories.length} categories, ${menuItems.length} items`}
+        title="メニュー管理"
+        subtitle={`${categories.length}カテゴリ、${menuItems.length}商品`}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => openCatModal()}>
-              + Category
+              + カテゴリ
             </Button>
             <Button onClick={() => openItemModal()}>
-              + Item
+              + 商品
             </Button>
           </div>
         }
@@ -178,7 +178,7 @@ export default function MenuManagementPage() {
         <div className="w-56 flex-shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="font-semibold text-sm text-gray-700">Categories</h3>
+              <h3 className="font-semibold text-sm text-gray-700">カテゴリ</h3>
             </div>
             <div className="p-1">
               <button
@@ -190,7 +190,7 @@ export default function MenuManagementPage() {
                     : "text-gray-700 hover:bg-gray-50"
                 )}
               >
-                All Items
+                全商品
               </button>
               {categories
                 .sort((a, b) => a.sort_order - b.sort_order)
@@ -207,7 +207,7 @@ export default function MenuManagementPage() {
                       )}
                     >
                       {cat.name}
-                      {!cat.active && <span className="text-xs text-gray-400 ml-1">(hidden)</span>}
+                      {!cat.active && <span className="text-xs text-gray-400 ml-1">（非表示）</span>}
                     </button>
                     <button
                       onClick={() => openCatModal(cat)}
@@ -265,30 +265,30 @@ export default function MenuManagementPage() {
                           : "bg-red-100 text-red-700"
                       )}
                     >
-                      {item.available ? "Available" : "Unavailable"}
+                      {item.available ? "提供中" : "提供停止"}
                     </button>
                   </div>
                 </div>
               ))}
             {filteredItems.length === 0 && (
-              <p className="col-span-full text-center text-gray-400 py-12">No items found</p>
+              <p className="col-span-full text-center text-gray-400 py-12">商品がありません</p>
             )}
           </div>
         </div>
       </div>
 
-      <Modal isOpen={catModal} onClose={() => setCatModal(false)} title={editCat ? "Edit Category" : "Add Category"}>
+      <Modal isOpen={catModal} onClose={() => setCatModal(false)} title={editCat ? "カテゴリ編集" : "カテゴリ追加"}>
         <div className="space-y-4">
           <Input
             id="catName"
-            label="Name"
+            label="名称"
             value={catName}
             onChange={(e) => setCatName(e.target.value)}
-            placeholder="Category name"
+            placeholder="カテゴリ名"
           />
           <Input
             id="catOrder"
-            label="Sort Order"
+            label="表示順"
             type="number"
             value={catOrder}
             onChange={(e) => setCatOrder(Number(e.target.value))}
@@ -300,31 +300,31 @@ export default function MenuManagementPage() {
               onChange={(e) => setCatActive(e.target.checked)}
               className="rounded border-gray-300"
             />
-            <span className="text-sm text-gray-700">Active</span>
+            <span className="text-sm text-gray-700">有効</span>
           </label>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setCatModal(false)} className="flex-1">
-              Cancel
+              キャンセル
             </Button>
             <Button onClick={saveCat} disabled={!catName} className="flex-1">
-              Save
+              保存
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={itemModal} onClose={() => setItemModal(false)} title={editItem ? "Edit Item" : "Add Item"}>
+      <Modal isOpen={itemModal} onClose={() => setItemModal(false)} title={editItem ? "商品編集" : "商品追加"}>
         <div className="space-y-4">
           <Input
             id="itemName"
-            label="Name"
+            label="商品名"
             value={itemName}
             onChange={(e) => setItemName(e.target.value)}
-            placeholder="Item name"
+            placeholder="商品名"
           />
           <Input
             id="itemPrice"
-            label="Price"
+            label="価格"
             type="number"
             min={0}
             value={itemPrice}
@@ -332,31 +332,31 @@ export default function MenuManagementPage() {
           />
           <Select
             id="itemCategory"
-            label="Category"
+            label="カテゴリ"
             value={itemCategory}
             onChange={(e) => setItemCategory(e.target.value)}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
           <Input
             id="itemDesc"
-            label="Description"
+            label="説明"
             value={itemDescription}
             onChange={(e) => setItemDescription(e.target.value)}
-            placeholder="Optional description"
+            placeholder="任意"
           />
           <Select
             id="itemTax"
-            label="Tax Type"
+            label="税率区分"
             value={itemTaxType}
             onChange={(e) => setItemTaxType(e.target.value)}
             options={[
-              { value: "STANDARD", label: "Standard (10%)" },
-              { value: "REDUCED", label: "Reduced (8%)" },
+              { value: "STANDARD", label: "標準税率（10%）" },
+              { value: "REDUCED", label: "軽減税率（8%）" },
             ]}
           />
           <Input
             id="itemOrder"
-            label="Sort Order"
+            label="表示順"
             type="number"
             value={itemOrder}
             onChange={(e) => setItemOrder(Number(e.target.value))}
@@ -368,14 +368,14 @@ export default function MenuManagementPage() {
               onChange={(e) => setItemAvailable(e.target.checked)}
               className="rounded border-gray-300"
             />
-            <span className="text-sm text-gray-700">Available</span>
+            <span className="text-sm text-gray-700">提供中</span>
           </label>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setItemModal(false)} className="flex-1">
-              Cancel
+              キャンセル
             </Button>
             <Button onClick={saveItem} disabled={!itemName || !itemPrice} className="flex-1">
-              Save
+              保存
             </Button>
           </div>
         </div>

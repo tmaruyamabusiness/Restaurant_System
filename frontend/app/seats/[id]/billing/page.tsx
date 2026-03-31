@@ -84,9 +84,9 @@ export default function BillingPage() {
   if (!seat) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500">Seat not found</p>
+        <p className="text-gray-500">席が見つかりません</p>
         <Button onClick={() => router.push("/")} className="mt-4">
-          Back to Floor Map
+          フロアマップに戻る
         </Button>
       </div>
     );
@@ -100,10 +100,10 @@ export default function BillingPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Complete</h2>
-        <p className="text-gray-500 mb-6">Seat #{seat.number} is now marked for cleaning.</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">会計完了</h2>
+        <p className="text-gray-500 mb-6">席 #{seat.number} は清掃待ちになりました。</p>
         <Button onClick={() => router.push("/")} size="lg">
-          Back to Floor Map
+          フロアマップに戻る
         </Button>
       </div>
     );
@@ -112,17 +112,17 @@ export default function BillingPage() {
   return (
     <div>
       <Header
-        title={`Billing - Seat #${seat.number}`}
+        title={`会計 - 席 #${seat.number}`}
         actions={
           <Button variant="ghost" onClick={() => router.push(`/seats/${seat.id}`)}>
-            Back to Seat
+            席に戻る
           </Button>
         }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="font-semibold text-gray-900 mb-4">Order Summary</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">注文内容</h3>
           <div className="space-y-3">
             {sessionOrders.map((order) => (
               <div key={order.id} className="border border-gray-100 rounded-lg p-3">
@@ -142,12 +142,12 @@ export default function BillingPage() {
             ))}
           </div>
           {sessionOrders.length === 0 && (
-            <p className="text-center text-gray-400 py-8">No orders to bill</p>
+            <p className="text-center text-gray-400 py-8">会計対象の注文がありません</p>
           )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="font-semibold text-gray-900 mb-4">Payment</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">お支払い</h3>
           <PaymentForm
             subtotal={subtotal}
             tax={tax}

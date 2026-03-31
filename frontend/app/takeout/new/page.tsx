@@ -65,10 +65,10 @@ export default function NewTakeoutPage() {
   return (
     <div>
       <Header
-        title="New Takeout Order"
+        title="テイクアウト新規注文"
         actions={
           <Button variant="ghost" onClick={() => router.push("/takeout")}>
-            Cancel
+            キャンセル
           </Button>
         }
       />
@@ -96,18 +96,18 @@ export default function NewTakeoutPage() {
 
         {step === "info" && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Customer Information</h3>
+            <h3 className="font-semibold text-gray-900">お客様情報</h3>
             <Input
               id="name"
-              label="Customer Name"
+              label="お客様名"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer name"
+              placeholder="お客様名"
               required
             />
             <Input
               id="phone"
-              label="Phone Number"
+              label="電話番号"
               type="tel"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
@@ -116,7 +116,7 @@ export default function NewTakeoutPage() {
             />
             <Input
               id="pickup"
-              label="Pickup Time"
+              label="受取時間"
               type="datetime-local"
               value={pickupTime || getDefaultPickupTime()}
               onChange={(e) => setPickupTime(e.target.value)}
@@ -131,7 +131,7 @@ export default function NewTakeoutPage() {
                   onChange={(e) => setPrepay(e.target.checked)}
                   className="rounded border-gray-300"
                 />
-                <span className="text-sm text-gray-700">Prepay</span>
+                <span className="text-sm text-gray-700">前払い</span>
               </label>
 
               {prepay && (
@@ -147,7 +147,7 @@ export default function NewTakeoutPage() {
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       )}
                     >
-                      {m.replace(/_/g, " ")}
+                      {({"CASH": "現金", "CREDIT_CARD": "クレジットカード", "QR": "QR決済"} as Record<string, string>)[m] || m}
                     </button>
                   ))}
                 </div>
@@ -162,14 +162,14 @@ export default function NewTakeoutPage() {
               disabled={!customerName || !customerPhone}
               className="w-full"
             >
-              Next - Select Items
+              次へ - 商品選択
             </Button>
           </div>
         )}
 
         {step === "menu" && (
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Select Menu Items</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">メニューから選択</h3>
             <MenuSelector
               onSubmit={handleMenuSubmit}
               onCancel={() => setStep("info")}
@@ -179,33 +179,33 @@ export default function NewTakeoutPage() {
 
         {step === "review" && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Order Summary</h3>
+            <h3 className="font-semibold text-gray-900">注文内容確認</h3>
 
             <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Customer</span>
+                <span className="text-gray-600">お客様</span>
                 <span className="font-medium">{customerName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Phone</span>
+                <span className="text-gray-600">電話番号</span>
                 <span className="font-medium">{customerPhone}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Pickup</span>
+                <span className="text-gray-600">受取時間</span>
                 <span className="font-medium">
                   {new Date(pickupTime || getDefaultPickupTime()).toLocaleString("ja-JP")}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Payment</span>
-                <span className="font-medium">{prepay ? `Prepay (${paymentMethod.replace(/_/g, " ")})` : "Pay on pickup"}</span>
+                <span className="text-gray-600">支払い</span>
+                <span className="font-medium">{prepay ? `前払い（${({"CASH": "現金", "CREDIT_CARD": "クレジットカード", "QR": "QR決済"} as Record<string, string>)[paymentMethod] || paymentMethod}）` : "受取時支払い"}</span>
               </div>
             </div>
 
             <div className="border border-gray-200 rounded-lg p-3">
-              <p className="text-sm text-gray-600 mb-2">{selectedItems.length} items selected</p>
+              <p className="text-sm text-gray-600 mb-2">{selectedItems.length}品選択済み</p>
               <Button variant="outline" size="sm" onClick={() => setStep("menu")}>
-                Edit Items
+                商品を変更
               </Button>
             </div>
 
@@ -215,10 +215,10 @@ export default function NewTakeoutPage() {
 
             <div className="flex gap-3">
               <Button variant="secondary" onClick={() => setStep("menu")} className="flex-1">
-                Back
+                戻る
               </Button>
               <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-                {loading ? "Creating..." : "Submit Order"}
+                {loading ? "作成中..." : "注文を確定"}
               </Button>
             </div>
           </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
+  cn,
   getSeatStatusColor,
   getItemStatusColor,
   getTakeoutStatusColor,
+  getStatusLabel,
 } from "@/lib/utils";
 import { SeatStatus, OrderItemStatus, TakeoutStatus } from "@/types";
 
@@ -27,7 +28,7 @@ export default function StatusBadge({ status, type, className }: StatusBadgeProp
     colorClass = getTakeoutStatusColor(status as TakeoutStatus);
   }
 
-  const displayLabel = (status ?? "").replace(/_/g, " ");
+  const displayLabel = getStatusLabel(status ?? "");
 
   return (
     <span

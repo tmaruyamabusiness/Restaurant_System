@@ -33,8 +33,8 @@ export default function KDSOrderCard({ order, onItemStatusChange }: KDSOrderCard
           <span className="font-bold text-gray-900 text-lg">{order.order_number}</span>
           <span className="text-sm text-gray-600 ml-2">
             {order.order_type === "DINE_IN"
-              ? `Seat #${order.seat_number}`
-              : `Takeout - ${order.customer_name}`}
+              ? `席 #${order.seat_number}`
+              : `テイクアウト - ${order.customer_name}`}
           </span>
         </div>
         <div className="text-right">
@@ -44,7 +44,7 @@ export default function KDSOrderCard({ order, onItemStatusChange }: KDSOrderCard
               elapsed > 20 ? "text-red-600" : elapsed > 10 ? "text-amber-600" : "text-green-600"
             )}
           >
-            {elapsed} min
+            {elapsed}分
           </span>
         </div>
       </div>

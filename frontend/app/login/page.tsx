@@ -40,17 +40,17 @@ export default function LoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white">Restaurant</h1>
-          <p className="text-slate-400 mt-1 text-sm">Order Management System</p>
+          <h1 className="text-3xl font-bold text-white">店舗管理</h1>
+          <p className="text-slate-400 mt-1 text-sm">注文管理システム</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Sign In</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">ログイン</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               id="email"
-              label="Email"
+              label="メールアドレス"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -60,11 +60,11 @@ export default function LoginPage() {
             />
             <Input
               id="password"
-              label="Password"
+              label="パスワード"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="パスワードを入力"
               required
             />
 
@@ -75,13 +75,13 @@ export default function LoginPage() {
             )}
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? "ログイン中..." : "ログイン"}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          Contact your manager if you need an account
+          アカウントが必要な場合は管理者にご連絡ください
         </p>
       </div>
     </div>

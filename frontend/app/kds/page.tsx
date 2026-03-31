@@ -36,8 +36,8 @@ export default function KDSPage() {
   return (
     <div className="min-h-screen">
       <Header
-        title="Kitchen Display"
-        subtitle={`${activeOrders.length} active orders`}
+        title="キッチンディスプレイ"
+        subtitle={`${activeOrders.length}件の調理中注文`}
       />
 
       {loading && kdsOrders.length === 0 ? (
@@ -49,8 +49,8 @@ export default function KDSPage() {
           <svg className="w-20 h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
           </svg>
-          <p className="text-xl text-gray-400 font-medium">All caught up!</p>
-          <p className="text-sm text-gray-400 mt-1">No pending orders</p>
+          <p className="text-xl text-gray-400 font-medium">全て完了！</p>
+          <p className="text-sm text-gray-400 mt-1">未処理の注文はありません</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
