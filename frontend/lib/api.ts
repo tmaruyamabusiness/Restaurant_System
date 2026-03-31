@@ -58,7 +58,7 @@ export const api = {
       token,
     }),
 
-  createSeat: (data: { number: number; type: string; capacity: number; sort_order: number }, token: string) =>
+  createSeat: (data: { number: string; type: string; capacity: number; sort_order: number }, token: string) =>
     fetchAPI<import("@/types").Seat>("/api/seats", {
       method: "POST",
       body: JSON.stringify(data),
