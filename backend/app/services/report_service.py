@@ -29,22 +29,31 @@ async def daily_report(db: AsyncSession, report_date: date) -> Dict[str, Any]:
     )
     row = total_q.one()
 
+    order_count = row.order_count or 0
+    total_sales = float(row.total)
+    average_per_order = total_sales / order_count if order_count > 0 else 0
+
+    # By order type
     dinein_q = await db.execute(
         select(
-            func.count(Order.id),
             func.coalesce(func.sum(Order.total_amount), 0),
         ).where(and_(base_filter, Order.order_type == OrderType.DINE_IN))
     )
-    dinein = dinein_q.one()
+    dinein_total = float(dinein_q.scalar() or 0)
 
     takeout_q = await db.execute(
         select(
-            func.count(Order.id),
             func.coalesce(func.sum(Order.total_amount), 0),
         ).where(and_(base_filter, Order.order_type == OrderType.TAKEOUT))
     )
-    takeout = takeout_q.one()
+    takeout_total = float(takeout_q.scalar() or 0)
 
+    by_order_type = {
+        "DINE_IN": dinein_total,
+        "TAKEOUT": takeout_total,
+    }
+
+    # By payment method
     payment_q = await db.execute(
         select(
             Payment.payment_method,
@@ -58,18 +67,29 @@ async def daily_report(db: AsyncSession, report_date: date) -> Dict[str, Any]:
         ))
         .group_by(Payment.payment_method)
     )
-    payment_breakdown = {r[0].value: float(r[1]) for r in payment_q.all()}
+    by_payment_method = {r[0].value: float(r[1]) for r in payment_q.all()}
+
+    # Hourly breakdown
+    hourly_q = await db.execute(
+        select(
+            extract("hour", Order.created_at).label("hour"),
+            func.coalesce(func.sum(Order.total_amount), 0),
+        )
+        .where(base_filter)
+        .group_by("hour")
+        .order_by("hour")
+    )
+    hourly_map = {int(r[0]): float(r[1]) for r in hourly_q.all()}
+    hourly = [{"hour": h, "total": hourly_map.get(h, 0)} for h in range(24)]
 
     return {
         "date": report_date.isoformat(),
-        "order_count": row.order_count,
-        "subtotal": float(row.subtotal),
-        "tax_total": float(row.tax),
-        "discount_total": float(row.discount),
-        "grand_total": float(row.total),
-        "dine_in": {"count": dinein[0], "total": float(dinein[1])},
-        "takeout": {"count": takeout[0], "total": float(takeout[1])},
-        "payment_methods": payment_breakdown,
+        "total_sales": total_sales,
+        "order_count": order_count,
+        "average_per_order": round(average_per_order),
+        "by_payment_method": by_payment_method,
+        "by_order_type": by_order_type,
+        "hourly": hourly,
     }
 
 
@@ -89,10 +109,7 @@ async def monthly_report(db: AsyncSession, year: int, month: int) -> Dict[str, A
     total_q = await db.execute(
         select(
             func.count(Order.id).label("order_count"),
-            func.coalesce(func.sum(Order.subtotal), 0).label("subtotal"),
-            func.coalesce(func.sum(Order.tax_amount), 0).label("tax"),
             func.coalesce(func.sum(Order.total_amount), 0).label("total"),
-            func.coalesce(func.sum(Order.discount_amount), 0).label("discount"),
         ).where(base_filter)
     )
     row = total_q.one()
@@ -107,18 +124,14 @@ async def monthly_report(db: AsyncSession, year: int, month: int) -> Dict[str, A
         .group_by("day")
         .order_by("day")
     )
-    daily_breakdown = [
-        {"date": r[0].strftime("%Y-%m-%d"), "count": r[1], "total": float(r[2])}
+    daily_totals = [
+        {"date": r[0].strftime("%Y-%m-%d"), "order_count": r[1], "total": float(r[2])}
         for r in daily_q.all()
     ]
 
     return {
-        "year": year,
-        "month": month,
-        "order_count": row.order_count,
-        "subtotal": float(row.subtotal),
-        "tax_total": float(row.tax),
-        "discount_total": float(row.discount),
-        "grand_total": float(row.total),
-        "daily_breakdown": daily_breakdown,
+        "month": f"{year}-{month:02d}",
+        "total_sales": float(row.total),
+        "total_orders": row.order_count or 0,
+        "daily_totals": daily_totals,
     }
