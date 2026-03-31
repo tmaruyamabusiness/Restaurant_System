@@ -21,7 +21,7 @@ export default function SettingsPage() {
 
   const [seatModal, setSeatModal] = useState(false);
   const [editSeat, setEditSeat] = useState<Seat | null>(null);
-  const [seatNumber, setSeatNumber] = useState(0);
+  const [seatNumber, setSeatNumber] = useState("");
   const [seatType, setSeatType] = useState<SeatType>("COUNTER");
   const [seatCapacity, setSeatCapacity] = useState(1);
   const [seatOrder, setSeatOrder] = useState(0);
@@ -75,7 +75,7 @@ export default function SettingsPage() {
       setSeatOrder(seat.sort_order);
     } else {
       setEditSeat(null);
-      setSeatNumber(seats.length + 1);
+      setSeatNumber(`S${seats.length + 1}`);
       setSeatType("COUNTER");
       setSeatCapacity(1);
       setSeatOrder(seats.length);
@@ -89,12 +89,12 @@ export default function SettingsPage() {
       if (editSeat) {
         await api.updateSeat(
           editSeat.id,
-          { number: seatNumber, type: seatType, capacity: seatCapacity, sort_order: seatOrder },
+          { seat_number: seatNumber, seat_type: seatType, capacity: seatCapacity, sort_order: seatOrder },
           token
         );
       } else {
         await api.createSeat(
-          { number: seatNumber, type: seatType, capacity: seatCapacity, sort_order: seatOrder },
+          { number: seatNumber, type: seatType as string, capacity: seatCapacity, sort_order: seatOrder },
           token
         );
       }
@@ -260,10 +260,9 @@ export default function SettingsPage() {
           <Input
             id="seatNum"
             label="Seat Number"
-            type="number"
-            min={1}
+            type="text"
             value={seatNumber}
-            onChange={(e) => setSeatNumber(Number(e.target.value))}
+            onChange={(e) => setSeatNumber(e.target.value)}
           />
           <Select
             id="seatType"
