@@ -11,6 +11,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { api } from "@/lib/api";
+import { getSeatTypeLabel } from "@/lib/utils";
 
 export default function FloorMapPage() {
   const router = useRouter();
@@ -109,7 +110,7 @@ export default function FloorMapPage() {
         {guideModal && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Seat #{guideModal.number} ({guideModal.type.replace(/_/g, " ")}) - Capacity: {guideModal.capacity}
+              Seat #{guideModal.number || guideModal.seat_number} ({getSeatTypeLabel(guideModal.type || guideModal.seat_type)}) - Capacity: {guideModal.capacity}
             </p>
             <Input
               id="partySize"

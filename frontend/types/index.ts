@@ -24,13 +24,17 @@ export interface LoginResponse {
 
 export interface Seat {
   id: string;
-  number: number;
+  number: string;
   type: SeatType;
   status: SeatStatus;
   capacity: number;
   sort_order: number;
   active: boolean;
   current_session?: SeatSession | null;
+  // backend field names (aliases)
+  seat_number?: string;
+  seat_type?: SeatType;
+  is_active?: boolean;
 }
 
 export interface SeatSession {

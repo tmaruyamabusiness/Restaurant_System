@@ -14,12 +14,17 @@ router = APIRouter(prefix="/api/seats", tags=["seats"])
 
 def build_seat_response(seat) -> dict:
     current = seat_service.get_current_session(seat)
+    status = current.status.value if current else "VACANT"
     data = {
         "id": seat.id,
         "seat_number": seat.seat_number,
         "seat_type": seat.seat_type,
+        "number": seat.seat_number,
+        "type": seat.seat_type.value,
+        "status": status,
         "capacity": seat.capacity,
         "is_active": seat.is_active,
+        "active": seat.is_active,
         "sort_order": seat.sort_order,
         "created_at": seat.created_at,
         "current_session": None,
