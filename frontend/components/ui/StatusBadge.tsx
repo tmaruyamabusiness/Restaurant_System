@@ -27,7 +27,7 @@ export default function StatusBadge({ status, type, className }: StatusBadgeProp
     colorClass = getTakeoutStatusColor(status as TakeoutStatus);
   }
 
-  const displayLabel = status.replace(/_/g, " ");
+  const displayLabel = (status ?? "").replace(/_/g, " ");
 
   return (
     <span
