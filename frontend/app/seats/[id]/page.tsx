@@ -115,31 +115,31 @@ export default function SeatDetailPage() {
   if (!seat) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500">Seat not found</p>
+        <p className="text-gray-500">席が見つかりません</p>
         <Button onClick={() => router.push("/")} className="mt-4">
-          Back to Floor Map
+          フロアマップに戻る
         </Button>
       </div>
     );
   }
 
   const statusOptions: { value: string; label: string }[] = [
-    { value: "VACANT", label: "Vacant" },
-    { value: "GUIDED", label: "Guided" },
-    { value: "ORDERING", label: "Ordering" },
-    { value: "BILLING", label: "Billing" },
-    { value: "CLEANING", label: "Cleaning" },
+    { value: "VACANT", label: "空席" },
+    { value: "GUIDED", label: "案内済" },
+    { value: "ORDERING", label: "注文中" },
+    { value: "BILLING", label: "会計中" },
+    { value: "CLEANING", label: "清掃中" },
   ];
 
   return (
     <div>
       <Header
-        title={`Seat #${seat.number}`}
+        title={`席 #${seat.number}`}
         subtitle={getSeatTypeLabel(seat.type)}
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => router.push("/")}>
-              Back to Floor
+              フロアに戻る
             </Button>
           </div>
         }
@@ -149,7 +149,7 @@ export default function SeatDetailPage() {
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Seat Info</h3>
+              <h3 className="font-semibold text-gray-900">席情報</h3>
               <StatusBadge status={seat.status} type="seat" />
             </div>
 
@@ -157,21 +157,21 @@ export default function SeatDetailPage() {
               <>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-gray-500">Party Size</p>
-                    <p className="font-semibold text-gray-900">{seat.current_session.party_size} guests</p>
+                    <p className="text-gray-500">人数</p>
+                    <p className="font-semibold text-gray-900">{seat.current_session.party_size} 名</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Elapsed</p>
+                    <p className="text-gray-500">経過時間</p>
                     <p className={cn("font-semibold", elapsed >= 60 ? "text-red-600" : "text-gray-900")}>
                       {formatElapsedTime(elapsed)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Orders</p>
+                    <p className="text-gray-500">注文数</p>
                     <p className="font-semibold text-gray-900">{sessionOrders.length}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Total</p>
+                    <p className="text-gray-500">合計</p>
                     <p className="font-bold text-lg text-gray-900">{formatCurrency(orderTotal)}</p>
                   </div>
                 </div>
@@ -185,7 +185,7 @@ export default function SeatDetailPage() {
                 onClick={() => setShowStatusModal(true)}
                 className="flex-1"
               >
-                Change Status
+                ステータス変更
               </Button>
               {seat.status !== "VACANT" && seat.status !== "BILLING" && (
                 <Button
@@ -193,7 +193,7 @@ export default function SeatDetailPage() {
                   onClick={() => router.push(`/seats/${seat.id}/billing`)}
                   className="flex-1"
                 >
-                  Go to Billing
+                  会計へ
                 </Button>
               )}
             </div>
@@ -201,7 +201,7 @@ export default function SeatDetailPage() {
 
           {seat.status !== "VACANT" && (
             <Button onClick={() => setShowMenu(true)} className="w-full" size="lg">
-              + Add New Order
+              + 新規注文
             </Button>
           )}
         </div>
@@ -209,7 +209,7 @@ export default function SeatDetailPage() {
         <div className="lg:col-span-2">
           {showMenu ? (
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Select Menu Items</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">メニューから選択</h3>
               <MenuSelector
                 onSubmit={handleAddOrder}
                 onCancel={() => setShowMenu(false)}
@@ -218,7 +218,7 @@ export default function SeatDetailPage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Orders</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">注文一覧</h3>
               <OrderList
                 orders={sessionOrders}
                 onItemStatusChange={handleItemStatusChange}
@@ -226,7 +226,7 @@ export default function SeatDetailPage() {
               />
               {sessionOrders.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Order Subtotal</span>
+                  <span className="text-gray-600 font-medium">小計</span>
                   <span className="text-xl font-bold text-gray-900">{formatCurrency(orderTotal)}</span>
                 </div>
               )}
@@ -235,21 +235,21 @@ export default function SeatDetailPage() {
         </div>
       </div>
 
-      <Modal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} title="Change Seat Status">
+      <Modal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} title="席のステータス変更">
         <div className="space-y-4">
           <Select
             id="status"
-            label="New Status"
+            label="新しいステータス"
             value={newStatus}
             onChange={(e) => setNewStatus(e.target.value as SeatStatus)}
             options={statusOptions}
           />
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setShowStatusModal(false)} className="flex-1">
-              Cancel
+              キャンセル
             </Button>
             <Button onClick={handleStatusChange} className="flex-1">
-              Update
+              更新
             </Button>
           </div>
         </div>

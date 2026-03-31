@@ -1,7 +1,7 @@
 "use client";
 
 import { TakeoutOrder, TakeoutStatus } from "@/types";
-import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
+import { formatCurrency, formatDateTime, getStatusLabel, cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Button from "@/components/ui/Button";
 
@@ -51,7 +51,7 @@ export default function TakeoutCard({ order, expanded, onToggle, onStatusChange 
           </div>
           <div className="text-right">
             <p className="font-bold text-gray-900">{formatCurrency(order.total)}</p>
-            <p className="text-xs text-gray-500 mt-1">Pickup: {formatDateTime(order.pickup_time)}</p>
+            <p className="text-xs text-gray-500 mt-1">受取: {formatDateTime(order.pickup_time)}</p>
           </div>
         </div>
         <p className="text-xs text-gray-500 truncate">{itemsSummary}</p>
@@ -76,15 +76,15 @@ export default function TakeoutCard({ order, expanded, onToggle, onStatusChange 
 
           <div className="bg-gray-50 rounded-lg p-3 mb-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal</span>
+              <span className="text-gray-600">小計</span>
               <span>{formatCurrency(order.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Tax</span>
+              <span className="text-gray-600">税</span>
               <span>{formatCurrency(order.tax)}</span>
             </div>
             <div className="flex justify-between font-bold mt-1 pt-1 border-t border-gray-200">
-              <span>Total</span>
+              <span>合計</span>
               <span>{formatCurrency(order.total)}</span>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function TakeoutCard({ order, expanded, onToggle, onStatusChange 
               onClick={() => onStatusChange(order.id, nextStatus[order.status]!)}
               className="w-full"
             >
-              Move to {nextStatus[order.status]!.replace(/_/g, " ")}
+              {`${getStatusLabel(nextStatus[order.status]!)}に変更`}
             </Button>
           )}
         </div>

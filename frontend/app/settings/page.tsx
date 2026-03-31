@@ -153,33 +153,33 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <Header title="Settings" />
+      <Header title="設定" />
 
       <div className="max-w-3xl space-y-8">
         <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Alert Threshold</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">アラートしきい値</h3>
           <p className="text-sm text-gray-500 mb-3">
-            Highlight seats when guests have been seated longer than this duration.
+            指定時間以上着席している席をハイライト表示します。
           </p>
           <div className="flex gap-3 items-end">
             <Input
               id="threshold"
-              label="Minutes"
+              label="分"
               type="number"
               min={1}
               value={thresholdInput}
               onChange={(e) => setThresholdInput(Number(e.target.value))}
               className="w-32"
             />
-            <Button onClick={saveThreshold}>Save</Button>
+            <Button onClick={saveThreshold}>保存</Button>
           </div>
         </section>
 
         <section className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Seat Management</h3>
+            <h3 className="font-semibold text-gray-900">席管理</h3>
             <Button size="sm" onClick={() => openSeatModal()}>
-              + Add Seat
+              + 席を追加
             </Button>
           </div>
           <div className="space-y-2">
@@ -193,16 +193,16 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-4">
                     <span className="font-bold text-gray-900 w-12">#{seat.number}</span>
                     <span className="text-sm text-gray-600">{getSeatTypeLabel(seat.type)}</span>
-                    <span className="text-sm text-gray-500">Cap: {seat.capacity}</span>
-                    <span className="text-xs text-gray-400">Order: {seat.sort_order}</span>
+                    <span className="text-sm text-gray-500">定員: {seat.capacity}</span>
+                    <span className="text-xs text-gray-400">並び順: {seat.sort_order}</span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => openSeatModal(seat)}>
-                    Edit
+                    編集
                   </Button>
                 </div>
               ))}
             {seats.length === 0 && (
-              <p className="text-center text-gray-400 py-4">No seats configured</p>
+              <p className="text-center text-gray-400 py-4">席が未設定です</p>
             )}
           </div>
         </section>
@@ -210,9 +210,9 @@ export default function SettingsPage() {
         {isOwner && (
           <section className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Staff Management</h3>
+              <h3 className="font-semibold text-gray-900">スタッフ管理</h3>
               <Button size="sm" onClick={() => openUserModal()}>
-                + Add Staff
+                + スタッフ追加
               </Button>
             </div>
             <div className="space-y-2">
@@ -239,34 +239,34 @@ export default function SettingsPage() {
                       {u.role}
                     </span>
                     {!u.active && (
-                      <span className="text-xs text-red-500">Inactive</span>
+                      <span className="text-xs text-red-500">無効</span>
                     )}
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => openUserModal(u)}>
-                    Edit
+                    編集
                   </Button>
                 </div>
               ))}
               {users.length === 0 && (
-                <p className="text-center text-gray-400 py-4">No staff members</p>
+                <p className="text-center text-gray-400 py-4">スタッフがいません</p>
               )}
             </div>
           </section>
         )}
       </div>
 
-      <Modal isOpen={seatModal} onClose={() => setSeatModal(false)} title={editSeat ? "Edit Seat" : "Add Seat"}>
+      <Modal isOpen={seatModal} onClose={() => setSeatModal(false)} title={editSeat ? "席を編集" : "席を追加"}>
         <div className="space-y-4">
           <Input
             id="seatNum"
-            label="Seat Number"
+            label="席番号"
             type="text"
             value={seatNumber}
             onChange={(e) => setSeatNumber(e.target.value)}
           />
           <Select
             id="seatType"
-            label="Type"
+            label="種別"
             value={seatType}
             onChange={(e) => {
               const t = e.target.value as SeatType;
@@ -276,14 +276,14 @@ export default function SettingsPage() {
               else setSeatCapacity(4);
             }}
             options={[
-              { value: "COUNTER", label: "Counter" },
-              { value: "TABLE_2", label: "2-Person Table" },
-              { value: "TABLE_4", label: "4-Person Table" },
+              { value: "COUNTER", label: "カウンター" },
+              { value: "TABLE_2", label: "2人テーブル" },
+              { value: "TABLE_4", label: "4人テーブル" },
             ]}
           />
           <Input
             id="seatCap"
-            label="Capacity"
+            label="定員"
             type="number"
             min={1}
             value={seatCapacity}
@@ -291,34 +291,34 @@ export default function SettingsPage() {
           />
           <Input
             id="seatOrd"
-            label="Sort Order"
+            label="表示順"
             type="number"
             value={seatOrder}
             onChange={(e) => setSeatOrder(Number(e.target.value))}
           />
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setSeatModal(false)} className="flex-1">
-              Cancel
+              キャンセル
             </Button>
             <Button onClick={saveSeat} className="flex-1">
-              Save
+              保存
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={userModal} onClose={() => setUserModal(false)} title={editUser ? "Edit Staff" : "Add Staff"}>
+      <Modal isOpen={userModal} onClose={() => setUserModal(false)} title={editUser ? "スタッフ編集" : "スタッフ追加"}>
         <div className="space-y-4">
           <Input
             id="uName"
-            label="Name"
+            label="名前"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
-            placeholder="Full name"
+            placeholder="氏名"
           />
           <Input
             id="uEmail"
-            label="Email"
+            label="メールアドレス"
             type="email"
             value={userEmail}
             onChange={(e) => setUserEmail(e.target.value)}
@@ -326,33 +326,33 @@ export default function SettingsPage() {
           />
           <Input
             id="uPass"
-            label={editUser ? "New Password (leave blank to keep)" : "Password"}
+            label={editUser ? "新パスワード（変更しない場合は空欄）" : "パスワード"}
             type="password"
             value={userPassword}
             onChange={(e) => setUserPassword(e.target.value)}
-            placeholder={editUser ? "Leave blank to keep current" : "Password"}
+            placeholder={editUser ? "変更しない場合は空欄" : "パスワード"}
           />
           <Select
             id="uRole"
-            label="Role"
+            label="役割"
             value={userRole}
             onChange={(e) => setUserRole(e.target.value as UserRole)}
             options={[
-              { value: "STAFF", label: "Staff" },
-              { value: "MANAGER", label: "Manager" },
-              { value: "OWNER", label: "Owner" },
+              { value: "STAFF", label: "スタッフ" },
+              { value: "MANAGER", label: "マネージャー" },
+              { value: "OWNER", label: "オーナー" },
             ]}
           />
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setUserModal(false)} className="flex-1">
-              Cancel
+              キャンセル
             </Button>
             <Button
               onClick={saveUser}
               disabled={!userName || !userEmail || (!editUser && !userPassword)}
               className="flex-1"
             >
-              Save
+              保存
             </Button>
           </div>
         </div>

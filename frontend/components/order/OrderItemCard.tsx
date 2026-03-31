@@ -37,7 +37,7 @@ export default function OrderItemCard({ item, onStatusChange, showStatusControls
             }}
             className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 transition-colors min-h-[32px]"
           >
-            Next
+            次へ
           </button>
         )}
       </div>

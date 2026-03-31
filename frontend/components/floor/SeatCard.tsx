@@ -53,24 +53,24 @@ export default function SeatCard({ seat, alertThreshold, onClick }: SeatCardProp
         {seat.status !== "VACANT" && seat.current_session ? (
           <div className="space-y-1">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Party</span>
-              <span className="font-semibold">{seat.current_session.party_size} guests</span>
+              <span className="text-gray-600">人数</span>
+              <span className="font-semibold">{seat.current_session.party_size}名</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Time</span>
+              <span className="text-gray-600">経過</span>
               <span className={cn("font-semibold", isLongStay ? "text-red-600" : "text-gray-900")}>
                 {formatElapsedTime(elapsed)}
               </span>
             </div>
             {seat.current_session.orders && seat.current_session.orders.length > 0 && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Orders</span>
+                <span className="text-gray-600">注文</span>
                 <span className="font-semibold">{seat.current_session.orders.length}</span>
               </div>
             )}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 italic">Available</p>
+          <p className="text-sm text-gray-400 italic">空席</p>
         )}
       </div>
     </div>

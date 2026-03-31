@@ -58,21 +58,21 @@ export default function FloorMapPage() {
   );
 
   const statuses: { key: SeatStatus; label: string; color: string }[] = [
-    { key: "VACANT", label: "Vacant", color: "bg-gray-200" },
-    { key: "GUIDED", label: "Guided", color: "bg-blue-200" },
-    { key: "ORDERING", label: "Ordering", color: "bg-amber-200" },
-    { key: "BILLING", label: "Billing", color: "bg-orange-200" },
-    { key: "CLEANING", label: "Cleaning", color: "bg-green-200" },
+    { key: "VACANT", label: "空席", color: "bg-gray-200" },
+    { key: "GUIDED", label: "案内済", color: "bg-blue-200" },
+    { key: "ORDERING", label: "注文中", color: "bg-amber-200" },
+    { key: "BILLING", label: "会計中", color: "bg-orange-200" },
+    { key: "CLEANING", label: "清掃中", color: "bg-green-200" },
   ];
 
   return (
     <div>
       <Header
-        title="Floor Map"
-        subtitle={`${seats.length} seats | ${statusCounts["VACANT"] || 0} available`}
+        title="フロアマップ"
+        subtitle={`${seats.length}席 | 空席 ${statusCounts["VACANT"] || 0}`}
         actions={
           <Button onClick={() => router.push("/takeout/new")}>
-            + New Takeout
+            + テイクアウト新規
           </Button>
         }
       />
@@ -106,15 +106,15 @@ export default function FloorMapPage() {
         </div>
       )}
 
-      <Modal isOpen={!!guideModal} onClose={() => setGuideModal(null)} title="Guide to Seat">
+      <Modal isOpen={!!guideModal} onClose={() => setGuideModal(null)} title="席への案内">
         {guideModal && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Seat #{guideModal.number || guideModal.seat_number} ({getSeatTypeLabel(guideModal.type || guideModal.seat_type)}) - Capacity: {guideModal.capacity}
+              席 #{guideModal.number || guideModal.seat_number}（{getSeatTypeLabel(guideModal.type || guideModal.seat_type)}）- 定員: {guideModal.capacity}名
             </p>
             <Input
               id="partySize"
-              label="Party Size"
+              label="人数"
               type="number"
               min={1}
               max={guideModal.capacity}
@@ -123,10 +123,10 @@ export default function FloorMapPage() {
             />
             <div className="flex gap-3">
               <Button variant="secondary" onClick={() => setGuideModal(null)} className="flex-1">
-                Cancel
+                キャンセル
               </Button>
               <Button onClick={handleGuide} className="flex-1">
-                Guide
+                案内する
               </Button>
             </div>
           </div>

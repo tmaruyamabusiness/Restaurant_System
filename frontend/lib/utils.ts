@@ -36,10 +36,10 @@ export function getElapsedMinutes(dateString: string): number {
 }
 
 export function formatElapsedTime(minutes: number): string {
-  if (minutes < 60) return `${minutes}min`;
+  if (minutes < 60) return `${minutes}分`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return `${h}h ${m}m`;
+  return `${h}時間${m}分`;
 }
 
 export function getSeatStatusColor(status: SeatStatus): string {
@@ -91,11 +91,32 @@ export function calculateTax(subtotal: number, rate: number = 0.08): number {
 
 export function getSeatTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    COUNTER: "Counter",
-    TABLE_2: "2-Person Table",
-    TABLE_4: "4-Person Table",
+    COUNTER: "カウンター",
+    TABLE_2: "2人テーブル",
+    TABLE_4: "4人テーブル",
   };
   return labels[type] || type;
+}
+
+export function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    VACANT: "空席",
+    GUIDED: "案内済",
+    ORDERING: "注文中",
+    BILLING: "会計中",
+    CLEANING: "清掃中",
+    PENDING: "未調理",
+    COOKING: "調理中",
+    READY: "提供可",
+    SERVED: "提供済",
+    CANCELLED: "キャンセル",
+    RECEIVED: "受付済",
+    PREPARING: "調理中",
+    PICKED_UP: "受取済",
+    PAID: "支払済",
+    UNPAID: "未払い",
+  };
+  return labels[status] || status.replace(/_/g, " ");
 }
 
 export function getSeatTypeIcon(type: string): string {

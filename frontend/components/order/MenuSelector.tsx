@@ -146,20 +146,20 @@ export default function MenuSelector({ onSubmit, onCancel, loading }: MenuSelect
         })}
         {filteredItems.length === 0 && (
           <p className="col-span-full text-center text-gray-400 py-8 text-sm">
-            No items in this category
+            このカテゴリに商品がありません
           </p>
         )}
       </div>
 
       {selectedItems.length > 0 && (
         <div className="border-t border-gray-200 pt-4 space-y-2">
-          <h4 className="font-semibold text-sm text-gray-700">Selected Items</h4>
+          <h4 className="font-semibold text-sm text-gray-700">選択済み商品</h4>
           <div className="max-h-[200px] overflow-y-auto space-y-2">
             {selectedItems.map((item) => (
               <div key={item.menu_item_id} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                  <p className="text-xs text-gray-500">{formatCurrency(item.price)} each</p>
+                  <p className="text-xs text-gray-500">{formatCurrency(item.price)}/個</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -177,7 +177,7 @@ export default function MenuSelector({ onSubmit, onCancel, loading }: MenuSelect
                   </button>
                 </div>
                 <Input
-                  placeholder="Notes"
+                  placeholder="備考"
                   value={item.notes}
                   onChange={(e) => updateNotes(item.menu_item_id, e.target.value)}
                   className="w-28 text-xs min-h-[36px] py-1"
@@ -190,7 +190,7 @@ export default function MenuSelector({ onSubmit, onCancel, loading }: MenuSelect
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-            <span className="font-semibold text-gray-700">Subtotal</span>
+            <span className="font-semibold text-gray-700">小計</span>
             <span className="font-bold text-lg text-gray-900">{formatCurrency(subtotal)}</span>
           </div>
         </div>
@@ -198,14 +198,14 @@ export default function MenuSelector({ onSubmit, onCancel, loading }: MenuSelect
 
       <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
         <Button variant="secondary" onClick={onCancel} className="flex-1">
-          Cancel
+          キャンセル
         </Button>
         <Button
           onClick={handleSubmit}
           disabled={selectedItems.length === 0 || loading}
           className="flex-1"
         >
-          {loading ? "Adding..." : `Add Order (${formatCurrency(subtotal)})`}
+          {loading ? "追加中..." : `注文追加（${formatCurrency(subtotal)}）`}
         </Button>
       </div>
     </div>
