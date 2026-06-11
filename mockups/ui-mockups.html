@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>レストランOMS — UI改善モック案</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif; }
+  body { background:#e2e8f0; }
+
+  /* ===== mockup switcher (not part of the product UI) ===== */
+  .switcher { position:sticky; top:0; z-index:100; background:#312e81; padding:10px 16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .switcher .lbl { color:#c7d2fe; font-size:12px; font-weight:700; margin-right:8px; }
+  .switcher button { background:#4338ca; color:#e0e7ff; border:none; border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  .switcher button.on { background:#fff; color:#312e81; font-weight:700; }
+  .screen { display:none; }
+  .screen.on { display:block; }
+  .note { background:#fef9c3; border:1px solid #fde047; color:#713f12; font-size:12px; padding:8px 14px; line-height:1.6; }
+  .note b { color:#a16207; }
+
+  /* ===== shared app shell ===== */
+  .shell { display:flex; min-height:760px; background:#f1f5f9; }
+  .sidebar { width:200px; background:#1e293b; color:#cbd5e1; flex-shrink:0; display:flex; flex-direction:column; }
+  .sidebar .brand { padding:18px 16px; border-bottom:1px solid rgba(255,255,255,.08); color:#fff; font-weight:700; font-size:16px; }
+  .sidebar .brand small { display:block; color:#64748b; font-weight:400; font-size:11px; margin-top:2px; }
+  .sidebar nav { padding:10px 8px; flex:1; }
+  .sidebar a { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:8px; color:#94a3b8; text-decoration:none; font-size:13.5px; margin-bottom:2px; }
+  .sidebar a.act { background:#3b82f6; color:#fff; font-weight:600; }
+  .sidebar .user { padding:14px 16px; border-top:1px solid rgba(255,255,255,.08); font-size:12px; }
+  .sidebar .user b { color:#fff; display:block; font-size:13px; }
+  .main { flex:1; padding:20px 24px; min-width:0; }
+  .pagehead { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
+  .pagehead h2 { font-size:21px; color:#0f172a; }
+  .pagehead .sub { color:#64748b; font-size:13px; margin-top:2px; }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; padding:11px 18px; min-height:44px; }
+  .btn-pri { background:#2563eb; color:#fff; }
+  .btn-grn { background:#059669; color:#fff; }
+  .btn-out { background:#fff; color:#334155; border:1.5px solid #cbd5e1; }
+  .btn-ghost { background:transparent; color:#475569; }
+  .btn-lg { font-size:16px; padding:14px 22px; width:100%; }
+  .btn-amber { background:#d97706; color:#fff; }
+
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 12px; font-size:12.5px; font-weight:700; }
+
+  .toast { position:absolute; right:20px; bottom:20px; background:#0f172a; color:#fff; border-radius:12px; padding:13px 18px; font-size:13.5px; display:flex; align-items:center; gap:10px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .toast .ic { width:22px; height:22px; border-radius:99px; background:#10b981; display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .toast.err .ic { background:#ef4444; }
+
+  /* ===== floor map ===== */
+  .stat-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .ftabs { display:flex; gap:6px; margin-bottom:14px; }
+  .ftabs button { border:1.5px solid #cbd5e1; background:#fff; color:#475569; border-radius:99px; padding:7px 16px; font-size:13px; cursor:pointer; min-height:38px; }
+  .ftabs button.on { background:#0f172a; border-color:#0f172a; color:#fff; font-weight:600; }
+  .seatgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .seat { border-radius:14px; padding:14px; min-height:150px; display:flex; flex-direction:column; position:relative; border:2px solid transparent; cursor:pointer; }
+  .seat h4 { font-size:19px; display:flex; align-items:center; gap:6px; }
+  .seat .typ { font-size:11px; opacity:.75; margin:2px 0 8px; }
+  .seat .row { display:flex; justify-content:space-between; font-size:12.5px; margin-top:3px; }
+  .seat .row b { font-size:13px; }
+  .s-vacant { background:#fff; border-color:#e2e8f0; color:#334155; }
+  .s-guided { background:#3b82f6; color:#fff; }
+  .s-ordering { background:#f59e0b; color:#fff; }
+  .s-billing { background:#f97316; color:#fff; }
+  .s-cleaning { background:#10b981; color:#fff; }
+  .s-alert { box-shadow:0 0 0 3px #fca5a5; }
+  .alertbadge { position:absolute; top:-9px; right:-6px; background:#dc2626; color:#fff; font-size:11.5px; font-weight:800; border-radius:99px; padding:3px 10px; }
+  .seat .quick { margin-top:auto; }
+  .quickbtn { width:100%; border:none; border-radius:9px; padding:9px; font-size:13px; font-weight:700; cursor:pointer; min-height:40px; }
+
+  /* ===== seat detail ===== */
+  .stepper { display:flex; align-items:center; gap:0; margin-bottom:16px; }
+  .step { display:flex; align-items:center; gap:7px; font-size:12.5px; color:#94a3b8; }
+  .step .dot { width:26px; height:26px; border-radius:99px; background:#e2e8f0; color:#64748b; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .step.done .dot { background:#10b981; color:#fff; }
+  .step.now .dot { background:#2563eb; color:#fff; }
+  .step.now { color:#1d4ed8; font-weight:700; }
+  .step.done { color:#047857; }
+  .stepline { width:34px; height:2px; background:#e2e8f0; margin:0 6px; }
+  .kv { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+  .kv div { background:#f8fafc; border-radius:10px; padding:10px 12px; }
+  .kv p { font-size:11.5px; color:#64748b; }
+  .kv b { font-size:17px; color:#0f172a; }
+  .oitem { display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid #f1f5f9; }
+  .oitem .nm { flex:1; font-size:14px; color:#0f172a; }
+  .oitem .nm small { display:block; color:#94a3b8; font-size:11.5px; }
+  .st { border-radius:99px; font-size:11px; font-weight:700; padding:4px 10px; }
+  .st-wait { background:#f1f5f9; color:#475569; }
+  .st-cook { background:#fef3c7; color:#b45309; }
+  .st-done { background:#d1fae5; color:#047857; }
+
+  /* ===== order input ===== */
+  .search { display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:11px 14px; color:#94a3b8; font-size:14px; margin-bottom:12px; }
+  .cats { display:flex; gap:8px; margin-bottom:14px; overflow:hidden; }
+  .cats button { border:none; background:#fff; border:1.5px solid #e2e8f0; color:#475569; border-radius:10px; padding:9px 14px; font-size:13px; cursor:pointer; min-height:42px; white-space:nowrap; }
+  .cats button.on { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:700; }
+  .cats .cnt { background:rgba(0,0,0,.12); border-radius:99px; padding:1px 7px; font-size:11px; margin-left:5px; }
+  .menugrid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .mitem { background:#fff; border:2px solid #e2e8f0; border-radius:12px; padding:10px; cursor:pointer; }
+  .mitem.sel { border-color:#2563eb; background:#eff6ff; }
+  .mitem .ph { height:54px; border-radius:8px; background:linear-gradient(135deg,#fde68a,#fca5a5); margin-bottom:8px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .mitem p { font-size:13px; font-weight:600; color:#0f172a; }
+  .mitem .pr { color:#2563eb; font-weight:700; font-size:13.5px; margin-top:3px; }
+  .mitem .qty { float:right; background:#2563eb; color:#fff; border-radius:99px; font-size:11px; font-weight:800; padding:2px 8px; }
+  .cart { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:14px; display:flex; flex-direction:column; height:100%; }
+  .citem { display:flex; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid #f1f5f9; }
+  .citem .nm { flex:1; font-size:13px; font-weight:600; color:#0f172a; min-width:0; }
+  .citem .nm small { display:block; color:#94a3b8; font-weight:400; font-size:11px; }
+  .stepbtn { width:34px; height:34px; border-radius:99px; border:none; font-size:16px; font-weight:700; cursor:pointer; }
+  .minus { background:#f1f5f9; color:#475569; }
+  .plus { background:#dbeafe; color:#1d4ed8; }
+  .totrow { display:flex; justify-content:space-between; font-size:13px; color:#475569; padding:3px 0; }
+  .totrow.big { font-size:17px; font-weight:800; color:#0f172a; border-top:1.5px solid #e2e8f0; margin-top:6px; padding-top:10px; }
+
+  /* ===== KDS ===== */
+  .kds { background:#0b1220; min-height:760px; padding:18px 22px; }
+  .kdshead { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .kdshead h2 { color:#fff; font-size:20px; }
+  .kdshead .sub { color:#64748b; font-size:13px; }
+  .kdstools { display:flex; gap:8px; }
+  .kdstools button { background:#1e293b; border:1px solid #334155; color:#cbd5e1; border-radius:10px; padding:9px 14px; font-size:13px; cursor:pointer; }
+  .kdsgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .kcard { background:#111c30; border-radius:14px; overflow:hidden; border-left:7px solid; color:#e2e8f0; }
+  .k-ok { border-color:#10b981; } .k-warn { border-color:#f59e0b; } .k-late { border-color:#ef4444; }
+  .khead { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:rgba(255,255,255,.04); }
+  .khead .tbl { font-size:19px; font-weight:800; color:#fff; }
+  .khead .tm { font-size:16px; font-weight:800; padding:4px 12px; border-radius:99px; }
+  .tm-ok { background:#064e3b; color:#34d399; } .tm-warn { background:#451a03; color:#fbbf24; } .tm-late { background:#450a0a; color:#f87171; animation:bl 1s infinite; }
+  @keyframes bl { 50% { opacity:.55; } }
+  .kitem { display:flex; align-items:center; gap:10px; padding:11px 14px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .kitem .qn { font-size:16px; font-weight:800; color:#fff; width:38px; }
+  .kitem .nm { flex:1; font-size:15.5px; }
+  .kitem .nm em { display:block; font-style:normal; color:#f87171; font-size:12px; font-weight:700; margin-top:2px; }
+  .kbtn { border:none; border-radius:9px; font-size:12.5px; font-weight:700; padding:9px 13px; cursor:pointer; min-height:40px; }
+  .kb-start { background:#b45309; color:#fff; }
+  .kb-done { background:#047857; color:#fff; }
+  .kb-served { background:#1e293b; color:#64748b; border:1px solid #334155; }
+  .kfoot { padding:11px 14px; }
+  .kfoot button { width:100%; background:#134e4a; color:#5eead4; border:1px solid #115e59; border-radius:10px; padding:11px; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .ktoast { position:absolute; right:22px; top:74px; background:#1d4ed8; color:#fff; border-radius:12px; padding:13px 18px; font-size:14px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.5); display:flex; gap:10px; align-items:center; }
+
+  /* ===== billing ===== */
+  .pay2col { display:grid; grid-template-columns:1.05fr 1.4fr; gap:18px; }
+  .recline { display:flex; justify-content:space-between; padding:7px 0; font-size:13.5px; color:#475569; }
+  .recline.tot { border-top:2px solid #0f172a; margin-top:8px; padding-top:12px; font-size:20px; font-weight:800; color:#0f172a; }
+  .paymeth { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+  .pm { border:2px solid #e2e8f0; background:#fff; border-radius:12px; padding:14px 8px; text-align:center; cursor:pointer; font-size:13px; font-weight:700; color:#475569; min-height:64px; }
+  .pm.on { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
+  .pm .em { display:block; font-size:20px; margin-bottom:4px; }
+  .quickamt { display:flex; gap:8px; margin-bottom:10px; }
+  .quickamt button { flex:1; border:1.5px solid #cbd5e1; background:#fff; border-radius:10px; padding:11px; font-size:14px; font-weight:700; color:#334155; cursor:pointer; min-height:46px; }
+  .tenkey { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .tenkey button { background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; font-size:20px; font-weight:700; color:#0f172a; padding:14px; cursor:pointer; min-height:56px; }
+  .tenkey .alt { background:#f1f5f9; font-size:14px; }
+  .cashdisp { background:#f8fafc; border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+  .cashdisp .r1 { display:flex; justify-content:space-between; font-size:14px; color:#475569; padding:4px 0; }
+  .cashdisp .r1 b { font-size:18px; color:#0f172a; }
+  .change { background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:12px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .change span { color:#047857; font-weight:700; font-size:15px; }
+  .change b { color:#047857; font-size:30px; }
+
+  /* ===== takeout ===== */
+  .ttabs { display:flex; gap:6px; margin-bottom:14px; }
+  .ttabs button { border:1.5px solid #cbd5e1; background:#fff; border-radius:99px; padding:8px 16px; font-size:13px; color:#475569; cursor:pointer; }
+  .ttabs button.on { background:#0f172a; color:#fff; border-color:#0f172a; font-weight:700; }
+  .tkgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .tkcard .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+  .tkcard .time { font-size:22px; font-weight:800; color:#0f172a; }
+  .tkcard .time small { font-size:12px; color:#64748b; font-weight:600; display:block; }
+  .tkcard .cust { font-size:14.5px; font-weight:700; color:#0f172a; margin:6px 0 2px; }
+  .tkcard .tel { font-size:12.5px; color:#2563eb; }
+  .tkcard .its { font-size:12.5px; color:#64748b; margin:8px 0 12px; line-height:1.7; }
+  .wizard { display:flex; align-items:center; margin-bottom:18px; }
+  .timechips { display:flex; gap:8px; margin-top:8px; }
+  .timechips button { border:1.5px solid #cbd5e1; background:#fff; border-radius:99px; padding:8px 14px; font-size:13px; font-weight:600; color:#334155; cursor:pointer; }
+  .timechips button.on { background:#2563eb; border-color:#2563eb; color:#fff; }
+  .fld { margin-bottom:14px; }
+  .fld label { display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px; }
+  .fld input { width:100%; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; font-size:15px; color:#0f172a; }
+  .fld .hint { font-size:11.5px; color:#94a3b8; margin-top:4px; }
+  .fld .ok { color:#059669; font-size:11.5px; margin-top:4px; font-weight:600; }
+
+  /* ===== login ===== */
+  .loginwrap { min-height:760px; background:linear-gradient(160deg,#1e293b,#0f172a); display:flex; align-items:center; justify-content:center; }
+  .logincard { width:400px; background:#fff; border-radius:18px; padding:32px; }
+  .logincard h1 { font-size:21px; color:#0f172a; text-align:center; }
+  .logincard .sub { text-align:center; color:#64748b; font-size:13px; margin:4px 0 22px; }
+  .demo { border-top:1px dashed #e2e8f0; margin-top:20px; padding-top:16px; }
+  .demo p { font-size:12px; color:#94a3b8; text-align:center; margin-bottom:10px; }
+  .demo .row { display:flex; gap:8px; }
+  .demo button { flex:1; border:1.5px solid #cbd5e1; background:#f8fafc; border-radius:10px; padding:10px 4px; font-size:12px; font-weight:700; color:#334155; cursor:pointer; min-height:44px; }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span class="lbl">画面モック切替 ▸</span>
+  <button data-s="login">1. ログイン</button>
+  <button data-s="floor" class="on">2. フロアマップ</button>
+  <button data-s="seat">3. 席詳細</button>
+  <button data-s="order">4. 注文入力</button>
+  <button data-s="kds">5. KDS</button>
+  <button data-s="billing">6. 会計</button>
+  <button data-s="takeout">7. テイクアウト</button>
+  <button data-s="tknew">8. テイクアウト新規</button>
+</div>
+
+<!-- ============ 1. LOGIN ============ -->
+<section class="screen" id="login">
+<div class="note"><b>改善点:</b> リロード時のログイン強制を解消(認証保持)/デモアカウントのワンタップ選択/Enterキー送信・エラーのインライン表示</div>
+<div class="loginwrap">
+  <div class="logincard">
+    <h1>🍽 店舗管理システム</h1>
+    <p class="sub">レストランOMS にログイン</p>
+    <div class="fld"><label>メールアドレス</label><input value="admin@example.com"></div>
+    <div class="fld"><label>パスワード</label><input type="password" value="********"></div>
+    <button class="btn btn-pri btn-lg">ログイン</button>
+    <div class="demo">
+      <p>― デモアカウントでログイン ―</p>
+      <div class="row">
+        <button>👑 オーナー</button><button>📋 マネージャー</button><button>🙋 スタッフ</button>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ 2. FLOOR MAP ============ -->
+<section class="screen on" id="floor">
+<div class="note"><b>改善点:</b> ステータス色をカード全面に(遠目で判別)/清掃中カードにワンタップ「清掃完了」/空席カードに「案内する」/席タイプフィルタ/操作結果トースト</div>
+<div class="shell" style="position:relative">
+  <aside class="sidebar">
+    <div class="brand">店舗管理<small>注文管理システム</small></div>
+    <nav>
+      <a class="act">🏠 フロアマップ</a><a>🥡 テイクアウト</a><a>👨‍🍳 キッチン（KDS）</a><a>📖 メニュー</a><a>📊 レポート</a><a>⚙️ 設定</a>
+    </nav>
+    <div class="user"><b>山田 太郎</b>オーナー</div>
+  </aside>
+  <main class="main">
+    <div class="pagehead">
+      <div><h2>フロアマップ</h2><p class="sub">12席 ・ 空席 4</p></div>
+      <button class="btn btn-pri">+ テイクアウト新規</button>
+    </div>
+    <div class="stat-row">
+      <span class="chip" style="background:#fff;border:1.5px solid #cbd5e1;color:#475569">⬜ 空席 4</span>
+      <span class="chip" style="background:#3b82f6;color:#fff">案内済 2</span>
+      <span class="chip" style="background:#f59e0b;color:#fff">注文中 3</span>
+      <span class="chip" style="background:#f97316;color:#fff">会計中 1</span>
+      <span class="chip" style="background:#10b981;color:#fff">清掃中 2</span>
+    </div>
+    <div class="ftabs">
+      <button class="on">すべて</button><button>🪑 テーブル</button><button>🍶 カウンター</button><button>🚪 個室</button>
+    </div>
+    <div class="seatgrid">
+      <div class="seat s-ordering s-alert">
+        <span class="alertbadge">⏰ 1時間05分</span>
+        <h4>🪑 #1</h4><p class="typ">テーブル・4名席</p>
+        <div class="row"><span>人数</span><b>4名</b></div>
+        <div class="row"><span>経過</span><b>1時間05分</b></div>
+        <div class="row"><span>注文 3件</span><b>¥8,420</b></div>
+      </div>
+      <div class="seat s-guided">
+        <h4>🪑 #2</h4><p class="typ">テーブル・4名席</p>
+        <div class="row"><span>人数</span><b>2名</b></div>
+        <div class="row"><span>経過</span><b>4分</b></div>
+        <div class="quick"><button class="quickbtn" style="background:rgba(255,255,255,.25);color:#fff">+ 注文を入力</button></div>
+      </div>
+      <div class="seat s-vacant">
+        <h4>🪑 #3</h4><p class="typ">テーブル・2名席</p>
+        <p style="font-size:12px;color:#94a3b8;margin-top:4px">空席</p>
+        <div class="quick"><button class="quickbtn" style="background:#eff6ff;color:#1d4ed8">👥 案内する</button></div>
+      </div>
+      <div class="seat s-cleaning">
+        <h4>🍶 #C1</h4><p class="typ">カウンター</p>
+        <div class="row"><span>状態</span><b>清掃中</b></div>
+        <div class="quick"><button class="quickbtn" style="background:#fff;color:#047857">✓ 清掃完了（空席に戻す）</button></div>
+      </div>
+      <div class="seat s-billing">
+        <h4>🚪 #R1</h4><p class="typ">個室・6名席</p>
+        <div class="row"><span>人数</span><b>5名</b></div>
+        <div class="row"><span>合計</span><b>¥23,650</b></div>
+        <div class="quick"><button class="quickbtn" style="background:#fff;color:#c2410c">💴 会計画面へ</button></div>
+      </div>
+      <div class="seat s-ordering">
+        <h4>🪑 #4</h4><p class="typ">テーブル・4名席</p>
+        <div class="row"><span>人数</span><b>3名</b></div>
+        <div class="row"><span>経過</span><b>22分</b></div>
+        <div class="row"><span>注文 2件</span><b>¥4,180</b></div>
+      </div>
+      <div class="seat s-vacant">
+        <h4>🍶 #C2</h4><p class="typ">カウンター</p>
+        <p style="font-size:12px;color:#94a3b8;margin-top:4px">空席</p>
+        <div class="quick"><button class="quickbtn" style="background:#eff6ff;color:#1d4ed8">👥 案内する</button></div>
+      </div>
+      <div class="seat s-guided">
+        <h4>🪑 #5</h4><p class="typ">テーブル・2名席</p>
+        <div class="row"><span>人数</span><b>2名</b></div>
+        <div class="row"><span>経過</span><b>1分</b></div>
+        <div class="quick"><button class="quickbtn" style="background:rgba(255,255,255,.25);color:#fff">+ 注文を入力</button></div>
+      </div>
+    </div>
+    <div class="toast"><span class="ic">✓</span>席 #2 に 2名を案内しました</div>
+  </main>
+</div>
+</section>
+
+<!-- ============ 3. SEAT DETAIL ============ -->
+<section class="screen" id="seat">
+<div class="note"><b>改善点:</b> 生のステータスSelect廃止→進行ステッパー+「次のアクション」ボタン/合計を常時大きく表示/品目ごとの調理状況チップ/失敗時トースト</div>
+<div class="shell" style="position:relative">
+  <aside class="sidebar">
+    <div class="brand">店舗管理<small>注文管理システム</small></div>
+    <nav><a class="act">🏠 フロアマップ</a><a>🥡 テイクアウト</a><a>👨‍🍳 キッチン（KDS）</a><a>📖 メニュー</a><a>📊 レポート</a><a>⚙️ 設定</a></nav>
+    <div class="user"><b>山田 太郎</b>オーナー</div>
+  </aside>
+  <main class="main">
+    <div class="pagehead">
+      <div><h2>席 #1 <span class="chip" style="background:#fef3c7;color:#b45309;vertical-align:3px">注文中</span></h2><p class="sub">テーブル・4名席</p></div>
+      <button class="btn btn-ghost">← フロアに戻る</button>
+    </div>
+    <div class="stepper">
+      <span class="step done"><span class="dot">✓</span>案内</span><span class="stepline"></span>
+      <span class="step now"><span class="dot">2</span>注文中</span><span class="stepline"></span>
+      <span class="step"><span class="dot">3</span>会計</span><span class="stepline"></span>
+      <span class="step"><span class="dot">4</span>清掃</span>
+    </div>
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:18px">
+      <div>
+        <div class="card">
+          <h3 style="font-size:14.5px;color:#0f172a">ご利用状況</h3>
+          <div class="kv">
+            <div><p>人数</p><b>4名</b></div>
+            <div><p>経過時間</p><b style="color:#dc2626">1時間05分</b></div>
+            <div><p>注文</p><b>3件・9品</b></div>
+            <div><p>合計（税込）</p><b>¥8,420</b></div>
+          </div>
+          <button class="btn btn-grn btn-lg" style="margin-bottom:8px">💴 会計へ進む</button>
+          <button class="btn btn-out btn-lg">+ 注文を追加</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="font-size:14.5px;color:#0f172a">注文一覧</h3>
+          <span style="font-size:12px;color:#94a3b8">最新が上に表示されます</span>
+        </div>
+        <p style="font-size:12px;color:#64748b;background:#f8fafc;border-radius:8px;padding:7px 10px;margin-bottom:4px">注文 #3 ・ 19:42 ・ ¥2,640</p>
+        <div class="oitem"><span class="nm">唐揚げ <small>備考: レモン別添え</small></span><span style="font-size:13px;color:#64748b">×2</span><span class="st st-cook">調理中</span></div>
+        <div class="oitem"><span class="nm">生ビール</span><span style="font-size:13px;color:#64748b">×4</span><span class="st st-done">提供済</span></div>
+        <p style="font-size:12px;color:#64748b;background:#f8fafc;border-radius:8px;padding:7px 10px;margin:10px 0 4px">注文 #2 ・ 19:18 ・ ¥3,560</p>
+        <div class="oitem"><span class="nm">マルゲリータピザ</span><span style="font-size:13px;color:#64748b">×1</span><span class="st st-done">提供済</span></div>
+        <div class="oitem"><span class="nm">シーザーサラダ</span><span style="font-size:13px;color:#64748b">×1</span><span class="st st-wait">調理待ち</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1.5px solid #e2e8f0">
+          <span style="color:#475569;font-weight:600">合計（税込）</span>
+          <span style="font-size:22px;font-weight:800;color:#0f172a">¥8,420</span>
+        </div>
+      </div>
+    </div>
+    <div class="toast err"><span class="ic">!</span>注文の送信に失敗しました — 通信を確認して再試行してください</div>
+  </main>
+</div>
+</section>
+
+<!-- ============ 4. ORDER INPUT ============ -->
+<section class="screen" id="order">
+<div class="note"><b>改善点:</b> メニュー検索ボックス/カテゴリに商品数バッジ/カート常時表示(2カラム)/数量ステッパー/税込合計を確定ボタンに表示</div>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">店舗管理<small>注文管理システム</small></div>
+    <nav><a class="act">🏠 フロアマップ</a><a>🥡 テイクアウト</a><a>👨‍🍳 キッチン（KDS）</a><a>📖 メニュー</a><a>📊 レポート</a><a>⚙️ 設定</a></nav>
+    <div class="user"><b>山田 太郎</b>オーナー</div>
+  </aside>
+  <main class="main">
+    <div class="pagehead">
+      <div><h2>注文入力 — 席 #1</h2><p class="sub">4名・注文中</p></div>
+      <button class="btn btn-ghost">✕ 閉じる</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:18px;align-items:start">
+      <div>
+        <div class="search">🔍 メニューを検索（例: からあげ）</div>
+        <div class="cats">
+          <button class="on">⭐ おすすめ<span class="cnt">6</span></button>
+          <button>🍺 ドリンク<span class="cnt">12</span></button>
+          <button>🍕 フード<span class="cnt">18</span></button>
+          <button>🍰 デザート<span class="cnt">5</span></button>
+        </div>
+        <div class="menugrid">
+          <div class="mitem sel"><div class="ph">🍗</div><p>唐揚げ<span class="qty">×2</span></p><p class="pr">¥680</p></div>
+          <div class="mitem"><div class="ph">🍕</div><p>マルゲリータピザ</p><p class="pr">¥1,280</p></div>
+          <div class="mitem sel"><div class="ph">🍺</div><p>生ビール<span class="qty">×4</span></p><p class="pr">¥580</p></div>
+          <div class="mitem"><div class="ph">🥗</div><p>シーザーサラダ</p><p class="pr">¥780</p></div>
+          <div class="mitem"><div class="ph">🍝</div><p>カルボナーラ</p><p class="pr">¥1,180</p></div>
+          <div class="mitem"><div class="ph">🍮</div><p>プリン</p><p class="pr">¥480</p></div>
+        </div>
+      </div>
+      <div class="cart">
+        <h3 style="font-size:14.5px;color:#0f172a;margin-bottom:6px">🛒 選択中の注文（3品）</h3>
+        <div class="citem">
+          <span class="nm">唐揚げ<small>備考: レモン別添え ✎</small></span>
+          <button class="stepbtn minus">−</button><b style="width:24px;text-align:center">2</b><button class="stepbtn plus">＋</button>
+          <b style="width:62px;text-align:right;font-size:13.5px">¥1,360</b>
+        </div>
+        <div class="citem">
+          <span class="nm">生ビール<small>備考を追加 ✎</small></span>
+          <button class="stepbtn minus">−</button><b style="width:24px;text-align:center">4</b><button class="stepbtn plus">＋</button>
+          <b style="width:62px;text-align:right;font-size:13.5px">¥2,320</b>
+        </div>
+        <div style="flex:1"></div>
+        <div style="margin-top:12px">
+          <div class="totrow"><span>小計</span><span>¥3,680</span></div>
+          <div class="totrow"><span>消費税（10%）</span><span>¥368</span></div>
+          <div class="totrow big"><span>合計</span><span>¥4,048</span></div>
+        </div>
+        <button class="btn btn-pri btn-lg" style="margin-top:12px">注文を確定する（¥4,048）</button>
+        <button class="btn btn-ghost btn-lg" style="margin-top:6px;min-height:40px;padding:8px">キャンセル</button>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============ 5. KDS ============ -->
+<section class="screen" id="kds">
+<div class="note"><b>改善点:</b> ダーク背景+大型フォント(厨房視認性)/経過時間で緑→黄→赤の色分け/新規注文の音+トースト通知(WebSocket即時)/注文単位の一括完了ボタン/全画面モード</div>
+<div class="kds" style="position:relative">
+  <div class="kdshead">
+    <div><h2>👨‍🍳 キッチンディスプレイ</h2><p class="sub">調理中の注文 5件 ・ 19:46 更新(リアルタイム)</p></div>
+    <div class="kdstools"><button>🔔 音 ON</button><button>⛶ 全画面</button></div>
+  </div>
+  <div class="kdsgrid">
+    <div class="kcard k-late">
+      <div class="khead"><span class="tbl">席 #1</span><span class="tm tm-late">12分</span></div>
+      <div class="kitem"><span class="qn">×2</span><span class="nm">唐揚げ<em>⚠ レモン別添え</em></span><button class="kbtn kb-done">✓ 完了</button></div>
+      <div class="kitem"><span class="qn">×1</span><span class="nm">シーザーサラダ</span><button class="kbtn kb-start">▶ 調理開始</button></div>
+      <div class="kfoot"><button>すべて完了にする</button></div>
+    </div>
+    <div class="kcard k-warn">
+      <div class="khead"><span class="tbl">🥡 テイクアウト #T12</span><span class="tm tm-warn">7分</span></div>
+      <div class="kitem"><span class="qn">×3</span><span class="nm">マルゲリータピザ<em>⚠ 20:15 受取</em></span><button class="kbtn kb-done">✓ 完了</button></div>
+      <div class="kitem"><span class="qn">×1</span><span class="nm">カルボナーラ</span><button class="kbtn kb-done">✓ 完了</button></div>
+      <div class="kfoot"><button>すべて完了にする</button></div>
+    </div>
+    <div class="kcard k-ok">
+      <div class="khead"><span class="tbl">席 #4</span><span class="tm tm-ok">2分</span></div>
+      <div class="kitem"><span class="qn">×1</span><span class="nm">カルボナーラ</span><button class="kbtn kb-start">▶ 調理開始</button></div>
+      <div class="kitem"><span class="qn">×2</span><span class="nm">プリン</span><button class="kbtn kb-start">▶ 調理開始</button></div>
+      <div class="kfoot"><button>すべて完了にする</button></div>
+    </div>
+    <div class="kcard k-ok">
+      <div class="khead"><span class="tbl">席 #R1</span><span class="tm tm-ok">4分</span></div>
+      <div class="kitem"><span class="qn">×6</span><span class="nm">生ビール</span><button class="kbtn kb-served">提供待ち</button></div>
+      <div class="kfoot"><button>すべて完了にする</button></div>
+    </div>
+  </div>
+  <div class="ktoast">🔔 新規注文 — 席 #5（3品）</div>
+</div>
+</section>
+
+<!-- ============ 6. BILLING ============ -->
+<section class="screen" id="billing">
+<div class="note"><b>改善点:</b> タッチテンキー+クイック金額(ちょうど/¥5,000/¥10,000)/おつりを最大サイズで表示/税率を注文データから表示(10%)/確定前の確認ステップ</div>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">店舗管理<small>注文管理システム</small></div>
+    <nav><a class="act">🏠 フロアマップ</a><a>🥡 テイクアウト</a><a>👨‍🍳 キッチン（KDS）</a><a>📖 メニュー</a><a>📊 レポート</a><a>⚙️ 設定</a></nav>
+    <div class="user"><b>山田 太郎</b>オーナー</div>
+  </aside>
+  <main class="main">
+    <div class="pagehead">
+      <div><h2>会計 — 席 #1</h2><p class="sub">4名・1時間12分</p></div>
+      <button class="btn btn-ghost">← 席詳細に戻る</button>
+    </div>
+    <div class="pay2col">
+      <div class="card">
+        <h3 style="font-size:14.5px;color:#0f172a;margin-bottom:8px">ご注文内容（3件・9品）</h3>
+        <div class="recline"><span>唐揚げ ×2</span><span>¥1,360</span></div>
+        <div class="recline"><span>生ビール ×4</span><span>¥2,320</span></div>
+        <div class="recline"><span>マルゲリータピザ ×1</span><span>¥1,280</span></div>
+        <div class="recline"><span>シーザーサラダ ×1</span><span>¥780</span></div>
+        <div class="recline" style="color:#94a3b8"><span>ほか 2品</span><span>¥1,920</span></div>
+        <div style="border-top:1px solid #e2e8f0;margin-top:8px;padding-top:8px">
+          <div class="recline"><span>小計</span><span>¥7,660</span></div>
+          <div class="recline"><span>消費税（10%）</span><span>¥766</span></div>
+          <div class="recline" style="color:#dc2626"><span>値引き（クーポン）</span><span>−¥500</span></div>
+          <div class="recline tot"><span>合計</span><span>¥7,926</span></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-out" style="flex:1">値引きを追加</button>
+          <button class="btn btn-out" style="flex:1">分割払い</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="paymeth">
+          <div class="pm on"><span class="em">💴</span>現金</div>
+          <div class="pm"><span class="em">💳</span>クレジット</div>
+          <div class="pm"><span class="em">📱</span>QR決済</div>
+        </div>
+        <div class="cashdisp">
+          <div class="r1"><span>お会計</span><b>¥7,926</b></div>
+          <div class="r1"><span>お預かり</span><b style="color:#1d4ed8">¥10,000</b></div>
+        </div>
+        <div class="change"><span>おつり</span><b>¥2,074</b></div>
+        <div class="quickamt">
+          <button>ちょうど</button><button>¥5,000</button><button>¥10,000</button>
+        </div>
+        <div class="tenkey">
+          <button>7</button><button>8</button><button>9</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>1</button><button>2</button><button>3</button>
+          <button class="alt">00</button><button>0</button><button class="alt">C</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;margin:14px 0"><input type="checkbox" checked> レシートを印刷する</label>
+        <button class="btn btn-grn btn-lg">会計を確定する（¥7,926）</button>
+        <p style="font-size:11.5px;color:#94a3b8;text-align:center;margin-top:8px">確定前に確認ダイアログを表示します</p>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============ 7. TAKEOUT LIST ============ -->
+<section class="screen" id="takeout">
+<div class="note"><b>改善点:</b> ステータスタブ/受取時刻を最大サイズ・残り時間表示/支払バッジ(前払済・未払)/次アクションボタン(調理完了→受渡)/電話番号タップ発信</div>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">店舗管理<small>注文管理システム</small></div>
+    <nav><a>🏠 フロアマップ</a><a class="act">🥡 テイクアウト</a><a>👨‍🍳 キッチン（KDS）</a><a>📖 メニュー</a><a>📊 レポート</a><a>⚙️ 設定</a></nav>
+    <div class="user"><b>山田 太郎</b>オーナー</div>
+  </aside>
+  <main class="main">
+    <div class="pagehead">
+      <div><h2>テイクアウト管理</h2><p class="sub">本日 8件 ・ 受渡待ち 3件</p></div>
+      <button class="btn btn-pri">+ 新規注文</button>
+    </div>
+    <div class="ttabs">
+      <button class="on">進行中 5</button><button>受渡済 3</button><button>キャンセル 0</button>
+    </div>
+    <div class="tkgrid">
+      <div class="card tkcard" style="border-left:5px solid #ef4444">
+        <div class="top">
+          <div class="time">20:00<small>あと9分 ⚠</small></div>
+          <span class="chip" style="background:#fee2e2;color:#b91c1c">未払</span>
+        </div>
+        <p class="cust">佐藤 様（#T11）</p>
+        <p class="tel">📞 090-1234-5678</p>
+        <p class="its">唐揚げ弁当 ×2、ウーロン茶 ×2 ・ <b>¥2,160</b></p>
+        <button class="btn btn-grn" style="width:100%">✓ 受け渡し完了（会計へ）</button>
+      </div>
+      <div class="card tkcard" style="border-left:5px solid #f59e0b">
+        <div class="top">
+          <div class="time">20:15<small>あと24分</small></div>
+          <span class="chip" style="background:#d1fae5;color:#047857">前払済</span>
+        </div>
+        <p class="cust">田中 様（#T12）</p>
+        <p class="tel">📞 080-9876-5432</p>
+        <p class="its">マルゲリータピザ ×3、カルボナーラ ×1 ・ <b>¥5,020</b></p>
+        <button class="btn btn-amber" style="width:100%">調理中 — 準備完了にする</button>
+      </div>
+      <div class="card tkcard" style="border-left:5px solid #94a3b8">
+        <div class="top">
+          <div class="time">20:45<small>あと54分</small></div>
+          <span class="chip" style="background:#d1fae5;color:#047857">前払済</span>
+        </div>
+        <p class="cust">鈴木 様（#T13）</p>
+        <p class="tel">📞 070-1111-2222</p>
+        <p class="its">シーザーサラダ ×1、プリン ×2 ・ <b>¥1,740</b></p>
+        <button class="btn btn-out" style="width:100%">受付済 — 調理開始</button>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============ 8. TAKEOUT NEW ============ -->
+<section class="screen" id="tknew">
+<div class="note"><b>改善点:</b> 受取時刻はローカル時刻+クイックチップ(+15/30/45分)でUTCズレ解消/電話番号の自動フォーマット+バリデーション/前払い選択を確認ステップに統合</div>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">店舗管理<small>注文管理システム</small></div>
+    <nav><a>🏠 フロアマップ</a><a class="act">🥡 テイクアウト</a><a>👨‍🍳 キッチン（KDS）</a><a>📖 メニュー</a><a>📊 レポート</a><a>⚙️ 設定</a></nav>
+    <div class="user"><b>山田 太郎</b>オーナー</div>
+  </aside>
+  <main class="main">
+    <div class="pagehead">
+      <div><h2>テイクアウト新規注文</h2></div>
+      <button class="btn btn-ghost">キャンセル</button>
+    </div>
+    <div class="wizard stepper">
+      <span class="step now"><span class="dot">1</span>顧客情報</span><span class="stepline"></span>
+      <span class="step"><span class="dot">2</span>商品選択</span><span class="stepline"></span>
+      <span class="step"><span class="dot">3</span>確認・前払い</span>
+    </div>
+    <div class="card" style="max-width:520px">
+      <div class="fld">
+        <label>お客様のお名前 <span style="color:#dc2626">*</span></label>
+        <input value="佐藤">
+      </div>
+      <div class="fld">
+        <label>電話番号 <span style="color:#dc2626">*</span></label>
+        <input value="090-1234-5678">
+        <p class="ok">✓ 自動でハイフン整形・形式チェック済み</p>
+      </div>
+      <div class="fld">
+        <label>受取時刻 <span style="color:#dc2626">*</span></label>
+        <input value="本日 20:00">
+        <div class="timechips">
+          <button>+15分（19:55）</button><button class="on">+30分（20:10）</button><button>+45分（20:25）</button><button>🕐 指定…</button>
+        </div>
+        <p class="hint">店舗のタイムゾーン（日本時間）で表示しています</p>
+      </div>
+      <button class="btn btn-pri btn-lg" style="margin-top:6px">次へ — 商品を選択</button>
+    </div>
+  </main>
+</div>
+</section>
+
+<script>
+  const show = (id) => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    document.querySelectorAll('.switcher button').forEach(b => b.classList.toggle('on', b.dataset.s === id));
+  };
+  document.querySelectorAll('.switcher button').forEach(b => b.addEventListener('click', () => { show(b.dataset.s); location.hash = b.dataset.s; }));
+  if (location.hash) show(location.hash.slice(1));
+</script>
+</body>
+</html>

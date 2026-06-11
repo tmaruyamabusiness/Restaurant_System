@@ -1,32 +1,52 @@
-# レストランOMS v1.0
+# レストランOMS v2.0
 
-飲食店向けの注文管理システム（OMS）です。
+飲食店向けの注文管理システム(OMS)です。
 座席管理、注文処理、キッチンディスプレイ、テイクアウト対応、会計・売上レポートまでを一元管理できます。
 リアルタイム通信により、フロアとキッチンの連携をスムーズに実現します。
 
+v2.0 でバックエンドを TypeScript(NestJS + Prisma)に全面移行し、フロントエンドと API スキーマ
+(`shared/` の Zod スキーマ)を共有するモノレポ構成になりました。フィールド名のズレは
+コンパイルエラーとして検出されます。
+
 ## 技術スタック
 
-- **バックエンド:** Python 3.11 / FastAPI / SQLAlchemy 2.0 / PostgreSQL 16
-- **フロントエンド:** Next.js 14 / React 18 / TypeScript / Tailwind CSS
+- **バックエンド:** Node.js 20 / NestJS 10 / Prisma 5 / PostgreSQL 16
+- **フロントエンド:** Next.js 14 / React 18 / TypeScript / Tailwind CSS / Zustand
+- **共有スキーマ:** Zod(`shared/` — リクエスト/レスポンス型と金額計算ロジックを共有)
 - **リアルタイム通信:** Socket.IO
-- **キャッシュ:** Redis 7
 - **インフラ:** Docker / Docker Compose
 
-## セットアップ
+## セットアップ(Docker)
 
 ```bash
-# リポジトリをクローン
 git clone <repository-url>
 cd Restaurant_System
 
-# 環境変数ファイルを作成
 cp .env.example .env
 
-# Docker Compose で起動
-docker-compose up -d
+docker compose up -d --build
+```
 
-# 初期データ投入
-docker-compose exec backend python -m app.seed
+起動時にマイグレーションと初期データ投入(シード)が自動実行されます。
+
+- フロントエンド: http://localhost:3000
+- バックエンドAPI: http://localhost:8000(ヘルスチェック: `/health`)
+
+## ローカル開発(Docker なし)
+
+```bash
+npm install
+
+# 共有スキーマをビルド
+npm run build:shared
+
+# バックエンド(PostgreSQL が必要。DATABASE_URL を環境変数で指定)
+npx prisma migrate deploy --schema backend/prisma/schema.prisma
+npx prisma generate --schema backend/prisma/schema.prisma
+npm run dev:backend
+
+# フロントエンド(別ターミナル)
+npm run dev:frontend
 ```
 
 ## デフォルトログイン
@@ -37,22 +57,38 @@ docker-compose exec backend python -m app.seed
 | manager@example.com | manager123 | マネージャー |
 | staff@example.com | staff123 | スタッフ |
 
-## 画面一覧
+ログイン画面のデモアカウントボタンからワンタップでログインできます。
 
-1. ログイン画面
-2. 座席管理画面（フロアマップ）
-3. 注文入力画面
-4. キッチンディスプレイ（KDS）
-5. 会計画面
-6. テイクアウト管理画面
-7. メニュー管理画面
-8. 売上レポート画面
-9. ユーザー管理画面
-10. 設定画面
+## 主な機能と権限
 
-## API ドキュメント
+| 機能 | スタッフ | マネージャー | オーナー |
+|---|---|---|---|
+| フロアマップ・案内・注文・会計 | ✓ | ✓ | ✓ |
+| KDS・テイクアウト | ✓ | ✓ | ✓ |
+| メニュー編集・席追加・店舗設定 | - | ✓ | ✓ |
+| 売上レポート | - | ✓ | ✓ |
+| スタッフ管理 | - | - | ✓ |
 
-サーバー起動後、以下の URL で Swagger UI を確認できます。
+すべての業務 API は JWT 認証必須です。
 
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
+## 設計メモ
+
+- **金額計算**: 整数円で計算。軽減税率対応(店内10% / テイクアウトは商品の税区分に従い、
+  酒類は持ち帰りでも10%)。計算ロジックは `shared/src/index.ts` の `computeTotals` に集約され、
+  フロントのプレビューとサーバーの確定金額が必ず一致します。
+- **値引き**: 会計(Payment)に紐づき、税は値引き後の金額に対して再計算されます。
+- **会計**: セッション単位の一括会計(`session_id`)とテイクアウトの注文単位会計(`order_id`)に対応。
+  行ロックで二重会計を防止しています。
+- **レポート**: 営業日は日本時間(Asia/Tokyo)の0時区切りで集計します。
+- **状態遷移**: 席(案内済→注文中→会計中→清掃中→空席)、調理(調理待ち→調理中→提供済)、
+  テイクアウト(受付済→調理中→準備完了→受渡済)はサーバー側で遷移を検証します。
+  未会計のテイクアウトは受け渡しできません。
+
+## ディレクトリ構成
+
+```
+shared/    フロント・バック共有の Zod スキーマ・型・金額計算
+backend/   NestJS API(src/ 配下にモジュール、prisma/ にスキーマとマイグレーション)
+frontend/  Next.js アプリ(App Router)
+mockups/   UI モック(HTML)
+```
