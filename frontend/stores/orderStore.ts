@@ -1,72 +1,65 @@
 import { create } from "zustand";
-import { Order, KDSOrder } from "@/types";
+import { OrderResponse } from "@/types";
 import { api } from "@/lib/api";
 
 interface OrderState {
-  orders: Order[];
-  kdsOrders: KDSOrder[];
+  /** 表示中セッションの注文(席詳細・会計画面) */
+  sessionOrders: OrderResponse[];
+  kdsOrders: OrderResponse[];
   loading: boolean;
-  error: string | null;
-  fetchOrders: (sessionId: string, token: string) => Promise<void>;
-  fetchKDSOrders: (token: string) => Promise<void>;
-  addOrder: (order: Order) => void;
-  updateOrderItem: (orderId: string, itemId: string, status: string) => void;
+  fetchSessionOrders: (sessionId: string) => Promise<void>;
+  clearSessionOrders: () => void;
+  fetchKdsOrders: () => Promise<void>;
+  /** WebSocket / API レスポンスの注文1件を両リストへ反映 */
+  applyOrder: (order: OrderResponse) => void;
 }
 
-export const useOrderStore = create<OrderState>((set) => ({
-  orders: [],
+function upsert(list: OrderResponse[], order: OrderResponse): OrderResponse[] {
+  return list.some((o) => o.id === order.id)
+    ? list.map((o) => (o.id === order.id ? order : o))
+    : [order, ...list];
+}
+
+const isActiveForKds = (o: OrderResponse) =>
+  o.status === "OPEN" && o.items.some((i) => i.status === "PENDING" || i.status === "COOKING");
+
+export const useOrderStore = create<OrderState>((set, get) => ({
+  sessionOrders: [],
   kdsOrders: [],
   loading: false,
-  error: null,
 
-  fetchOrders: async (sessionId: string, token: string) => {
-    set({ loading: true, error: null });
+  fetchSessionOrders: async (sessionId) => {
+    set({ loading: true });
     try {
-      const orders = await api.getOrders(sessionId, token);
-      set({ orders, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+      const orders = await api.getSessionOrders(sessionId);
+      set({ sessionOrders: orders });
+    } finally {
+      set({ loading: false });
     }
   },
 
-  fetchKDSOrders: async (token: string) => {
-    set({ loading: true, error: null });
+  clearSessionOrders: () => set({ sessionOrders: [] }),
+
+  fetchKdsOrders: async () => {
+    set({ loading: true });
     try {
-      const kdsOrders = await api.getKDSOrders(token);
-      set({ kdsOrders, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+      const orders = await api.getKdsOrders();
+      set({ kdsOrders: orders });
+    } finally {
+      set({ loading: false });
     }
   },
 
-  addOrder: (order: Order) => {
-    set((state) => ({
-      orders: [...state.orders, order],
-    }));
-  },
-
-  updateOrderItem: (orderId: string, itemId: string, status: string) => {
-    set((state) => ({
-      orders: state.orders.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              items: o.items.map((i) =>
-                i.id === itemId ? { ...i, status: status as any } : i
-              ),
-            }
-          : o
-      ),
-      kdsOrders: state.kdsOrders.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              items: o.items.map((i) =>
-                i.id === itemId ? { ...i, status: status as any } : i
-              ),
-            }
-          : o
-      ),
-    }));
+  applyOrder: (order) => {
+    const { sessionOrders, kdsOrders } = get();
+    set({
+      sessionOrders:
+        sessionOrders.length > 0 && sessionOrders[0].session_id === order.session_id
+          ? upsert(sessionOrders, order)
+          : sessionOrders,
+      kdsOrders: isActiveForKds(order)
+        ? upsert(kdsOrders, order)
+        : kdsOrders.filter((o) => o.id !== order.id),
+    });
   },
 }));

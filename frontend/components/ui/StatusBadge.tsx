@@ -2,43 +2,35 @@
 
 import {
   cn,
-  getSeatStatusColor,
   getItemStatusColor,
-  getTakeoutStatusColor,
+  getSeatStatusChip,
   getStatusLabel,
+  getTakeoutStatusColor,
 } from "@/lib/utils";
-import { SeatStatus, OrderItemStatus, TakeoutStatus } from "@/types";
+import { OrderItemStatus, SeatStatus, TakeoutStatus } from "@/types";
 
-type StatusType = "seat" | "item" | "takeout";
+type Props =
+  | { type: "seat"; status: SeatStatus; className?: string }
+  | { type: "item"; status: OrderItemStatus; className?: string }
+  | { type: "takeout"; status: TakeoutStatus; className?: string };
 
-interface StatusBadgeProps {
-  status: string;
-  type: StatusType;
-  className?: string;
-}
-
-export default function StatusBadge({ status, type, className }: StatusBadgeProps) {
-  let colorClass = "bg-gray-200 text-gray-700";
-
-  if (type === "seat") {
-    colorClass = getSeatStatusColor(status as SeatStatus);
-  } else if (type === "item") {
-    colorClass = getItemStatusColor(status as OrderItemStatus);
-  } else if (type === "takeout") {
-    colorClass = getTakeoutStatusColor(status as TakeoutStatus);
-  }
-
-  const displayLabel = getStatusLabel(status ?? "");
+export default function StatusBadge({ type, status, className }: Props) {
+  const colorClass =
+    type === "seat"
+      ? getSeatStatusChip(status)
+      : type === "item"
+        ? getItemStatusColor(status)
+        : getTakeoutStatusColor(status);
 
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide",
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
         colorClass,
         className
       )}
     >
-      {displayLabel}
+      {getStatusLabel(status)}
     </span>
   );
 }

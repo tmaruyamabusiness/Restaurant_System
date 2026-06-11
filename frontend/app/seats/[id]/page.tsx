@@ -1,120 +1,135 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/authStore";
-import { useSeatStore } from "@/stores/seatStore";
-import { useOrderStore } from "@/stores/orderStore";
-import { Seat, SeatStatus } from "@/types";
-import { api } from "@/lib/api";
-import { formatCurrency, formatElapsedTime, getElapsedMinutes, getSeatTypeLabel, cn } from "@/lib/utils";
 import Header from "@/components/layout/Header";
+import MenuSelector from "@/components/order/MenuSelector";
+import OrderList from "@/components/order/OrderList";
 import Button from "@/components/ui/Button";
 import StatusBadge from "@/components/ui/StatusBadge";
-import OrderList from "@/components/order/OrderList";
-import MenuSelector from "@/components/order/MenuSelector";
-import Modal from "@/components/ui/Modal";
-import Select from "@/components/ui/Select";
+import { api } from "@/lib/api";
+import {
+  cn,
+  formatCurrency,
+  formatElapsedTime,
+  getElapsedMinutes,
+  getSeatTypeLabel,
+} from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrderStore } from "@/stores/orderStore";
+import { useSeatStore } from "@/stores/seatStore";
+import { withToast } from "@/stores/toastStore";
+import { OrderItemCreate, OrderItemStatus, SeatResponse } from "@/types";
+
+const STEPS = [
+  { key: "GUIDED", label: "案内" },
+  { key: "ORDERING", label: "注文中" },
+  { key: "BILLING", label: "会計" },
+  { key: "CLEANING", label: "清掃" },
+] as const;
+
+function Stepper({ status }: { status: string }) {
+  const currentIdx = STEPS.findIndex((s) => s.key === status);
+  return (
+    <div className="mb-4 flex items-center">
+      {STEPS.map((step, i) => {
+        const state = i < currentIdx ? "done" : i === currentIdx ? "now" : "todo";
+        return (
+          <div key={step.key} className="flex items-center">
+            {i > 0 && <div className="mx-1.5 h-0.5 w-8 bg-gray-200" />}
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-xs",
+                state === "now" && "font-bold text-blue-700",
+                state === "done" && "text-emerald-700",
+                state === "todo" && "text-gray-400"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold",
+                  state === "now" && "bg-blue-600 text-white",
+                  state === "done" && "bg-emerald-500 text-white",
+                  state === "todo" && "bg-gray-200 text-gray-500"
+                )}
+              >
+                {state === "done" ? "✓" : i + 1}
+              </span>
+              {step.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function SeatDetailPage() {
   const params = useParams();
   const router = useRouter();
   const seatId = params.id as string;
-  const { token } = useAuthStore();
-  const { updateSeat: updateSeatInStore } = useSeatStore();
-  const { orders, fetchOrders } = useOrderStore();
-  const [seat, setSeat] = useState<Seat | null>(null);
+  const { isAuthenticated } = useAuthStore();
+  const applySeat = useSeatStore((s) => s.applySeat);
+  const { sessionOrders, fetchSessionOrders, clearSessionOrders } = useOrderStore();
+  const [seat, setSeat] = useState<SeatResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [newStatus, setNewStatus] = useState<SeatStatus>("ORDERING");
+  const [submitting, setSubmitting] = useState(false);
+
+  const reload = useCallback(async () => {
+    const data = await withToast(() => api.getSeat(seatId));
+    if (data) {
+      setSeat(data);
+      applySeat(data);
+      if (data.current_session) await fetchSessionOrders(data.current_session.id);
+      else clearSessionOrders();
+    }
+    setLoading(false);
+  }, [seatId, applySeat, fetchSessionOrders, clearSessionOrders]);
 
   useEffect(() => {
-    if (!token) return;
-    const load = async () => {
-      try {
-        const seatData = await api.getSeat(seatId, token);
-        setSeat(seatData);
-        if (seatData.current_session) {
-          await fetchOrders(seatData.current_session.id, token);
-        }
-      } catch {
-        // handle error
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [seatId, token, fetchOrders]);
+    if (isAuthenticated) reload();
+  }, [isAuthenticated, reload]);
 
-  const handleAddOrder = async (items: { menu_item_id: string; quantity: number; notes?: string }[]) => {
-    if (!token || !seat?.current_session) return;
-    setOrderLoading(true);
-    try {
-      await api.createOrder(
-        {
+  const handleAddOrder = async (items: OrderItemCreate[]) => {
+    if (!seat?.current_session) return;
+    setSubmitting(true);
+    const created = await withToast(
+      () =>
+        api.createOrder({
           order_type: "DINE_IN",
-          seat_session_id: seat.current_session.id,
+          session_id: seat.current_session!.id,
           items,
-        },
-        token
-      );
-      const updated = await api.getSeat(seatId, token);
-      setSeat(updated);
-      if (updated.current_session) {
-        await fetchOrders(updated.current_session.id, token);
-      }
+        }),
+      "注文をキッチンに送信しました"
+    );
+    setSubmitting(false);
+    if (created) {
       setShowMenu(false);
-    } catch {
-      // handle error
-    } finally {
-      setOrderLoading(false);
+      await reload();
     }
   };
 
-  const handleItemStatusChange = async (itemId: string, status: string) => {
-    if (!token) return;
-    try {
-      await api.updateOrderItemStatus(itemId, status, token);
-      if (seat?.current_session) {
-        await fetchOrders(seat.current_session.id, token);
-      }
-    } catch {
-      // handle error
-    }
+  const handleItemStatusChange = async (
+    orderId: string,
+    itemId: string,
+    status: OrderItemStatus
+  ) => {
+    const updated = await withToast(() => api.updateOrderItem(orderId, itemId, { status }));
+    if (updated) await fetchSessionOrders(seat!.current_session!.id);
   };
-
-  const handleStatusChange = async () => {
-    if (!token || !seat) return;
-    try {
-      const updated = await api.updateSeatStatus(seat.id, newStatus, undefined, token);
-      setSeat(updated);
-      updateSeatInStore(updated);
-      setShowStatusModal(false);
-      if (newStatus === "VACANT") {
-        router.push("/");
-      }
-    } catch {
-      // handle error
-    }
-  };
-
-  const sessionOrders = seat?.current_session?.orders || orders;
-  const orderTotal = sessionOrders.reduce((sum, o) => sum + o.total, 0);
-  const elapsed = seat?.current_session ? getElapsedMinutes(seat.current_session.seated_at) : 0;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-blue-600" />
       </div>
     );
   }
 
   if (!seat) {
     return (
-      <div className="text-center py-20">
+      <div className="py-20 text-center">
         <p className="text-gray-500">席が見つかりません</p>
         <Button onClick={() => router.push("/")} className="mt-4">
           フロアマップに戻る
@@ -123,137 +138,153 @@ export default function SeatDetailPage() {
     );
   }
 
-  const statusOptions: { value: string; label: string }[] = [
-    { value: "VACANT", label: "空席" },
-    { value: "GUIDED", label: "案内済" },
-    { value: "ORDERING", label: "注文中" },
-    { value: "BILLING", label: "会計中" },
-    { value: "CLEANING", label: "清掃中" },
-  ];
+  const session = seat.current_session;
+  const activeOrders = sessionOrders.filter((o) => o.status !== "CANCELLED");
+  const orderTotal = activeOrders.reduce((sum, o) => sum + o.total_amount, 0);
+  const elapsed = session ? getElapsedMinutes(session.seated_at) : 0;
 
   return (
     <div>
       <Header
-        title={`席 #${seat.number}`}
-        subtitle={getSeatTypeLabel(seat.type)}
+        title={`席 #${seat.seat_number}`}
+        subtitle={`${getSeatTypeLabel(seat.seat_type)}・${seat.capacity}名席`}
         actions={
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => router.push("/")}>
-              フロアに戻る
-            </Button>
-          </div>
+          <Button variant="ghost" onClick={() => router.push("/")}>
+            ← フロアに戻る
+          </Button>
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">席情報</h3>
-              <StatusBadge status={seat.status} type="seat" />
+      {!session ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
+          <p className="text-gray-500">この席は現在空席です</p>
+          <Button onClick={() => router.push("/")} className="mt-4">
+            フロアマップで案内する
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Stepper status={seat.status} />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_1fr]">
+            <div className="space-y-4">
+              <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">ご利用状況</h3>
+                  <StatusBadge type="seat" status={seat.status} />
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[
+                    { label: "人数", value: `${session.party_size}名` },
+                    {
+                      label: "経過時間",
+                      value: formatElapsedTime(elapsed),
+                      alert: elapsed >= 60,
+                    },
+                    { label: "注文", value: `${activeOrders.length}件` },
+                    { label: "合計（税込）", value: formatCurrency(orderTotal), big: true },
+                  ].map((kv) => (
+                    <div key={kv.label} className="rounded-lg bg-gray-50 px-3 py-2">
+                      <p className="text-[11px] text-gray-500">{kv.label}</p>
+                      <p
+                        className={cn(
+                          "font-bold text-gray-900",
+                          kv.big ? "text-lg" : "text-base",
+                          kv.alert && "text-red-600"
+                        )}
+                      >
+                        {kv.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {(seat.status === "GUIDED" || seat.status === "ORDERING") && (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                      disabled={activeOrders.length === 0}
+                      onClick={() => router.push(`/seats/${seat.id}/billing`)}
+                    >
+                      💴 会計へ進む
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                      onClick={() => setShowMenu(true)}
+                    >
+                      + 注文を追加
+                    </Button>
+                  </>
+                )}
+                {seat.status === "BILLING" && (
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                    onClick={() => router.push(`/seats/${seat.id}/billing`)}
+                  >
+                    💴 会計画面を開く
+                  </Button>
+                )}
+                {seat.status === "CLEANING" && (
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                    onClick={async () => {
+                      const updated = await withToast(
+                        () => api.changeSeatStatus(seat.id, "VACANT"),
+                        "清掃完了。空席に戻しました"
+                      );
+                      if (updated) {
+                        applySeat(updated);
+                        router.push("/");
+                      }
+                    }}
+                  >
+                    ✓ 清掃完了（空席に戻す）
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {seat.current_session && (
-              <>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-gray-500">人数</p>
-                    <p className="font-semibold text-gray-900">{seat.current_session.party_size} 名</p>
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              {showMenu ? (
+                <>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                    注文入力 — 席 #{seat.seat_number}
+                  </h3>
+                  <MenuSelector
+                    orderType="DINE_IN"
+                    onSubmit={handleAddOrder}
+                    onCancel={() => setShowMenu(false)}
+                    loading={submitting}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">注文一覧</h3>
+                    <span className="text-xs text-gray-400">最新が上に表示されます</span>
                   </div>
-                  <div>
-                    <p className="text-gray-500">経過時間</p>
-                    <p className={cn("font-semibold", elapsed >= 60 ? "text-red-600" : "text-gray-900")}>
-                      {formatElapsedTime(elapsed)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">注文数</p>
-                    <p className="font-semibold text-gray-900">{sessionOrders.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">合計</p>
-                    <p className="font-bold text-lg text-gray-900">{formatCurrency(orderTotal)}</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="flex gap-2 pt-2 border-t border-gray-100">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowStatusModal(true)}
-                className="flex-1"
-              >
-                ステータス変更
-              </Button>
-              {seat.status !== "VACANT" && seat.status !== "BILLING" && (
-                <Button
-                  size="sm"
-                  onClick={() => router.push(`/seats/${seat.id}/billing`)}
-                  className="flex-1"
-                >
-                  会計へ
-                </Button>
+                  <OrderList orders={sessionOrders} onItemStatusChange={handleItemStatusChange} />
+                  {activeOrders.length > 0 && (
+                    <div className="mt-4 flex items-center justify-between border-t-2 border-gray-100 pt-3">
+                      <span className="font-medium text-gray-600">合計（税込）</span>
+                      <span className="text-2xl font-extrabold text-gray-900">
+                        {formatCurrency(orderTotal)}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
-
-          {seat.status !== "VACANT" && (
-            <Button onClick={() => setShowMenu(true)} className="w-full" size="lg">
-              + 新規注文
-            </Button>
-          )}
-        </div>
-
-        <div className="lg:col-span-2">
-          {showMenu ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">メニューから選択</h3>
-              <MenuSelector
-                onSubmit={handleAddOrder}
-                onCancel={() => setShowMenu(false)}
-                loading={orderLoading}
-              />
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">注文一覧</h3>
-              <OrderList
-                orders={sessionOrders}
-                onItemStatusChange={handleItemStatusChange}
-                showStatusControls
-              />
-              {sessionOrders.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">小計</span>
-                  <span className="text-xl font-bold text-gray-900">{formatCurrency(orderTotal)}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <Modal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} title="席のステータス変更">
-        <div className="space-y-4">
-          <Select
-            id="status"
-            label="新しいステータス"
-            value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value as SeatStatus)}
-            options={statusOptions}
-          />
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setShowStatusModal(false)} className="flex-1">
-              キャンセル
-            </Button>
-            <Button onClick={handleStatusChange} className="flex-1">
-              更新
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </>
+      )}
     </div>
   );
 }

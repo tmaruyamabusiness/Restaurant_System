@@ -1,20 +1,18 @@
-import { SeatStatus, OrderItemStatus, TakeoutStatus } from "@/types";
+import { OrderItemStatus, SeatStatus, SeatType, TakeoutStatus } from "@/types";
 
 export function formatCurrency(amount: number): string {
   return `¥${amount.toLocaleString("ja-JP")}`;
 }
 
 export function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString("ja-JP", {
+  return new Date(dateString).toLocaleTimeString("ja-JP", {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
 export function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleString("ja-JP", {
+  return new Date(dateString).toLocaleString("ja-JP", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -29,73 +27,82 @@ export function formatDateInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** datetime-local 用にローカル時刻で整形(toISOString はUTCになるため使わない) */
+export function formatDateTimeLocalInput(date: Date): string {
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  return `${formatDateInput(date)}T${h}:${m}`;
+}
+
 export function getElapsedMinutes(dateString: string): number {
-  const seated = new Date(dateString).getTime();
-  const now = Date.now();
-  return Math.floor((now - seated) / 60000);
+  return Math.max(0, Math.floor((Date.now() - new Date(dateString).getTime()) / 60000));
 }
 
 export function formatElapsedTime(minutes: number): string {
   if (minutes < 60) return `${minutes}分`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}時間${m}分`;
+  return `${Math.floor(minutes / 60)}時間${String(minutes % 60).padStart(2, "0")}分`;
 }
 
-export function getSeatStatusColor(status: SeatStatus): string {
-  const colors: Record<SeatStatus, string> = {
-    VACANT: "bg-gray-200 text-gray-700",
-    GUIDED: "bg-blue-200 text-blue-800",
-    ORDERING: "bg-amber-200 text-amber-800",
-    BILLING: "bg-orange-200 text-orange-800",
-    CLEANING: "bg-green-200 text-green-800",
+/** カード全面をステータス色で塗る(遠目での判別性重視) */
+export function getSeatCardStyle(status: SeatStatus): string {
+  const styles: Record<SeatStatus, string> = {
+    VACANT: "bg-white border-gray-200 text-gray-700",
+    GUIDED: "bg-blue-500 border-blue-500 text-white",
+    ORDERING: "bg-amber-500 border-amber-500 text-white",
+    BILLING: "bg-orange-500 border-orange-500 text-white",
+    CLEANING: "bg-emerald-500 border-emerald-500 text-white",
   };
-  return colors[status];
+  return styles[status];
 }
 
-export function getSeatStatusBorder(status: SeatStatus): string {
-  const colors: Record<SeatStatus, string> = {
-    VACANT: "border-gray-300",
-    GUIDED: "border-blue-400",
-    ORDERING: "border-amber-400",
-    BILLING: "border-orange-400",
-    CLEANING: "border-green-400",
+export function getSeatStatusChip(status: SeatStatus): string {
+  const styles: Record<SeatStatus, string> = {
+    VACANT: "bg-white border border-gray-300 text-gray-600",
+    GUIDED: "bg-blue-500 text-white",
+    ORDERING: "bg-amber-500 text-white",
+    BILLING: "bg-orange-500 text-white",
+    CLEANING: "bg-emerald-500 text-white",
   };
-  return colors[status];
+  return styles[status];
 }
 
 export function getItemStatusColor(status: OrderItemStatus): string {
   const colors: Record<OrderItemStatus, string> = {
-    PENDING: "bg-gray-200 text-gray-700",
-    COOKING: "bg-amber-200 text-amber-800",
-    READY: "bg-green-200 text-green-800",
-    SERVED: "bg-blue-200 text-blue-800",
-    CANCELLED: "bg-red-200 text-red-800",
+    PENDING: "bg-gray-100 text-gray-600",
+    COOKING: "bg-amber-100 text-amber-700",
+    SERVED: "bg-emerald-100 text-emerald-700",
+    CANCELLED: "bg-red-100 text-red-700",
   };
   return colors[status];
 }
 
 export function getTakeoutStatusColor(status: TakeoutStatus): string {
   const colors: Record<TakeoutStatus, string> = {
-    RECEIVED: "bg-blue-200 text-blue-800",
-    PREPARING: "bg-amber-200 text-amber-800",
-    READY: "bg-green-200 text-green-800",
-    PICKED_UP: "bg-gray-200 text-gray-700",
+    RECEIVED: "bg-blue-100 text-blue-700",
+    PREPARING: "bg-amber-100 text-amber-700",
+    READY: "bg-emerald-100 text-emerald-700",
+    PICKED_UP: "bg-gray-100 text-gray-600",
+    CANCELLED: "bg-red-100 text-red-700",
   };
   return colors[status];
 }
 
-export function calculateTax(subtotal: number, rate: number = 0.08): number {
-  return Math.floor(subtotal * rate);
+export function getSeatTypeLabel(type: SeatType): string {
+  const labels: Record<SeatType, string> = {
+    TABLE: "テーブル",
+    COUNTER: "カウンター",
+    PRIVATE: "個室",
+  };
+  return labels[type];
 }
 
-export function getSeatTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    COUNTER: "カウンター",
-    TABLE_2: "2人テーブル",
-    TABLE_4: "4人テーブル",
+export function getSeatTypeIcon(type: SeatType): string {
+  const icons: Record<SeatType, string> = {
+    TABLE: "🪑",
+    COUNTER: "🍶",
+    PRIVATE: "🚪",
   };
-  return labels[type] || type;
+  return icons[type];
 }
 
 export function getStatusLabel(status: string): string {
@@ -105,27 +112,29 @@ export function getStatusLabel(status: string): string {
     ORDERING: "注文中",
     BILLING: "会計中",
     CLEANING: "清掃中",
-    PENDING: "未調理",
+    PENDING: "調理待ち",
     COOKING: "調理中",
-    READY: "提供可",
     SERVED: "提供済",
     CANCELLED: "キャンセル",
     RECEIVED: "受付済",
     PREPARING: "調理中",
-    PICKED_UP: "受取済",
-    PAID: "支払済",
-    UNPAID: "未払い",
+    READY: "準備完了",
+    PICKED_UP: "受渡済",
+    OPEN: "未会計",
+    CLOSED: "会計済",
+    CASH: "現金",
+    CREDIT_CARD: "クレジットカード",
+    QR: "QR決済",
+    OWNER: "オーナー",
+    MANAGER: "マネージャー",
+    STAFF: "スタッフ",
+    TABLE: "テーブル",
+    COUNTER: "カウンター",
+    PRIVATE: "個室",
+    DINE_IN: "店内",
+    TAKEOUT: "テイクアウト",
   };
-  return labels[status] || status.replace(/_/g, " ");
-}
-
-export function getSeatTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    COUNTER: "🪑",
-    TABLE_2: "🍽️",
-    TABLE_4: "🍽️🍽️",
-  };
-  return icons[type] || "🪑";
+  return labels[status] || status;
 }
 
 export function cn(...classes: (string | boolean | undefined | null)[]): string {

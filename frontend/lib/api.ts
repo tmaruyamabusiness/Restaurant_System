@@ -1,219 +1,166 @@
+import {
+  DailyReportResponse,
+  GuideRequest,
+  LoginRequest,
+  LoginResponse,
+  MenuCategoryCreateRequest,
+  MenuCategoryResponse,
+  MenuCategoryUpdateRequest,
+  MenuItemCreateRequest,
+  MenuItemResponse,
+  MenuItemUpdateRequest,
+  MonthlyReportResponse,
+  OrderCreateRequest,
+  OrderItemUpdateRequest,
+  OrderItemStatus,
+  OrderResponse,
+  PaymentCreateRequest,
+  PaymentResponse,
+  SeatCreateRequest,
+  SeatResponse,
+  SeatStatus,
+  SeatUpdateRequest,
+  SettingsResponse,
+  SettingsUpdateRequest,
+  TakeoutCreateRequest,
+  TakeoutResponse,
+  TakeoutStatus,
+  UserCreateRequest,
+  UserResponse,
+  UserUpdateRequest,
+} from "@/types";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-interface FetchOptions extends RequestInit {
-  token?: string;
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string
+  ) {
+    super(message);
+  }
 }
 
-async function fetchAPI<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const { token, ...fetchOpts } = options;
+/** 401(トークン失効)時に呼ばれる。AppShell がログアウト処理を登録する */
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(handler: () => void): void {
+  onUnauthorized = handler;
+}
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
+function token(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("auth_token");
+}
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+async function request<T>(path: string, init?: RequestInit & { json?: unknown }): Promise<T> {
+  const headers: Record<string, string> = {};
+  const t = token();
+  if (t) headers["Authorization"] = `Bearer ${t}`;
+  if (init?.json !== undefined) headers["Content-Type"] = "application/json";
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: { ...headers, ...init?.headers },
+      body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
+    });
+  } catch {
+    throw new ApiError(0, "サーバーに接続できません。通信環境を確認してください");
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...fetchOpts,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+  if (res.status === 401 && !path.startsWith("/api/auth/login")) {
+    onUnauthorized?.();
+    throw new ApiError(401, "セッションの有効期限が切れました。再ログインしてください");
   }
-
-  if (response.status === 204) {
-    return {} as T;
+  if (!res.ok) {
+    let message = `エラーが発生しました (${res.status})`;
+    try {
+      const body = await res.json();
+      if (typeof body?.message === "string") message = body.message;
+      else if (Array.isArray(body?.message)) message = body.message.join(", ");
+    } catch {
+      // body が JSON でない場合は既定メッセージのまま
+    }
+    throw new ApiError(res.status, message);
   }
-
-  return response.json();
+  return (await res.json()) as T;
 }
 
 export const api = {
-  // Auth
-  login: (email: string, password: string) =>
-    fetchAPI<{ access_token: string; token_type: string; user: import("@/types").User }>(
-      "/api/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      }
+  // ---- auth ----
+  login: (body: LoginRequest) =>
+    request<LoginResponse>("/api/auth/login", { method: "POST", json: body }),
+  me: () => request<UserResponse>("/api/auth/me"),
+
+  // ---- seats ----
+  getSeats: () => request<SeatResponse[]>("/api/seats"),
+  getSeat: (id: string) => request<SeatResponse>(`/api/seats/${id}`),
+  createSeat: (body: SeatCreateRequest) =>
+    request<SeatResponse>("/api/seats", { method: "POST", json: body }),
+  updateSeat: (id: string, body: SeatUpdateRequest) =>
+    request<SeatResponse>(`/api/seats/${id}`, { method: "PUT", json: body }),
+  guideSeat: (id: string, body: GuideRequest) =>
+    request<SeatResponse>(`/api/seats/${id}/guide`, { method: "POST", json: body }),
+  changeSeatStatus: (id: string, status: SeatStatus) =>
+    request<SeatResponse>(`/api/seats/${id}/status`, { method: "POST", json: { status } }),
+
+  // ---- menu ----
+  getMenu: (includeInactive = false) =>
+    request<MenuCategoryResponse[]>(
+      `/api/menu/categories${includeInactive ? "?include_inactive=true" : ""}`
     ),
+  createCategory: (body: MenuCategoryCreateRequest) =>
+    request<MenuCategoryResponse>("/api/menu/categories", { method: "POST", json: body }),
+  updateCategory: (id: string, body: MenuCategoryUpdateRequest) =>
+    request<MenuCategoryResponse>(`/api/menu/categories/${id}`, { method: "PUT", json: body }),
+  createMenuItem: (body: MenuItemCreateRequest) =>
+    request<MenuItemResponse>("/api/menu/items", { method: "POST", json: body }),
+  updateMenuItem: (id: string, body: MenuItemUpdateRequest) =>
+    request<MenuItemResponse>(`/api/menu/items/${id}`, { method: "PUT", json: body }),
 
-  // Seats
-  getSeats: (token: string) =>
-    fetchAPI<import("@/types").Seat[]>("/api/seats", { token }),
-
-  getSeat: (id: string, token: string) =>
-    fetchAPI<import("@/types").Seat>(`/api/seats/${id}`, { token }),
-
-  updateSeatStatus: (id: string, status: string, partySize: number | undefined, token: string) =>
-    fetchAPI<import("@/types").Seat>(`/api/seats/${id}/status`, {
+  // ---- orders / KDS ----
+  createOrder: (body: OrderCreateRequest) =>
+    request<OrderResponse>("/api/orders", { method: "POST", json: body }),
+  getSessionOrders: (sessionId: string) =>
+    request<OrderResponse[]>(`/api/orders/session/${sessionId}`),
+  updateOrderItem: (orderId: string, itemId: string, body: OrderItemUpdateRequest) =>
+    request<OrderResponse>(`/api/orders/${orderId}/items/${itemId}`, {
       method: "PUT",
-      body: JSON.stringify({ status, party_size: partySize }),
-      token,
+      json: body,
     }),
-
-  createSeat: (data: { number: string; type: string; capacity: number; sort_order: number }, token: string) =>
-    fetchAPI<import("@/types").Seat>("/api/seats", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  updateSeat: (id: string, data: Partial<import("@/types").Seat>, token: string) =>
-    fetchAPI<import("@/types").Seat>(`/api/seats/${id}`, {
+  getKdsOrders: () => request<OrderResponse[]>("/api/kds/orders"),
+  updateKdsItemStatus: (itemId: string, status: OrderItemStatus) =>
+    request<OrderResponse>(`/api/kds/items/${itemId}/status`, {
       method: "PUT",
-      body: JSON.stringify(data),
-      token,
+      json: { status },
     }),
 
-  // Orders
-  getOrders: (sessionId: string, token: string) =>
-    fetchAPI<import("@/types").Order[]>(`/api/orders?session_id=${sessionId}`, { token }),
+  // ---- payments ----
+  createPayment: (body: PaymentCreateRequest) =>
+    request<PaymentResponse>("/api/payments", { method: "POST", json: body }),
 
-  createOrder: (data: {
-    order_type: string;
-    seat_session_id?: string;
-    takeout_order_id?: string;
-    items: { menu_item_id: string; quantity: number; notes?: string }[];
-  }, token: string) =>
-    fetchAPI<import("@/types").Order>("/api/orders", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
+  // ---- takeout ----
+  getTakeoutOrders: (all = false) =>
+    request<TakeoutResponse[]>(`/api/takeout${all ? "?all=true" : ""}`),
+  createTakeoutOrder: (body: TakeoutCreateRequest) =>
+    request<TakeoutResponse>("/api/takeout", { method: "POST", json: body }),
+  changeTakeoutStatus: (id: string, status: TakeoutStatus) =>
+    request<TakeoutResponse>(`/api/takeout/${id}/status`, { method: "PUT", json: { status } }),
 
-  updateOrderItemStatus: (itemId: string, status: string, token: string) =>
-    fetchAPI<import("@/types").OrderItem>(`/api/orders/items/${itemId}/status`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-      token,
-    }),
+  // ---- reports ----
+  getDailyReport: (date?: string) =>
+    request<DailyReportResponse>(`/api/reports/daily${date ? `?date=${date}` : ""}`),
+  getMonthlyReport: (year: number, month: number) =>
+    request<MonthlyReportResponse>(`/api/reports/monthly?year=${year}&month=${month}`),
 
-  // Billing / Payments
-  createPayment: (data: {
-    session_id?: string;
-    takeout_order_id?: string;
-    payments: { method: string; amount: number; received_amount?: number }[];
-    discount_amount?: number;
-    discount_percentage?: number;
-    print_receipt?: boolean;
-  }, token: string) =>
-    fetchAPI<import("@/types").Payment>("/api/payments", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  // Takeout
-  getTakeoutOrders: (token: string, status?: string) => {
-    const query = status ? `?status=${status}` : "";
-    return fetchAPI<import("@/types").TakeoutOrder[]>(`/api/takeout${query}`, { token });
-  },
-
-  getTakeoutOrder: (id: string, token: string) =>
-    fetchAPI<import("@/types").TakeoutOrder>(`/api/takeout/${id}`, { token }),
-
-  createTakeoutOrder: (data: {
-    customer_name: string;
-    customer_phone: string;
-    pickup_time: string;
-    items: { menu_item_id: string; quantity: number; notes?: string }[];
-    prepay: boolean;
-    payment_method?: string;
-  }, token: string) =>
-    fetchAPI<import("@/types").TakeoutOrder>("/api/takeout", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  updateTakeoutStatus: (id: string, status: string, token: string) =>
-    fetchAPI<import("@/types").TakeoutOrder>(`/api/takeout/${id}/status`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-      token,
-    }),
-
-  // KDS
-  getKDSOrders: (token: string) =>
-    fetchAPI<import("@/types").KDSOrder[]>("/api/kds/orders", { token }),
-
-  // Menu
-  getCategories: (token: string) =>
-    fetchAPI<import("@/types").MenuCategory[]>("/api/menu/categories", { token }),
-
-  createCategory: (data: { name: string; sort_order: number; active: boolean }, token: string) =>
-    fetchAPI<import("@/types").MenuCategory>("/api/menu/categories", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  updateCategory: (id: string, data: Partial<import("@/types").MenuCategory>, token: string) =>
-    fetchAPI<import("@/types").MenuCategory>(`/api/menu/categories/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  getMenuItems: (token: string, categoryId?: string) => {
-    const query = categoryId ? `?category_id=${categoryId}` : "";
-    return fetchAPI<import("@/types").MenuItem[]>(`/api/menu/items${query}`, { token });
-  },
-
-  createMenuItem: (data: Partial<import("@/types").MenuItem>, token: string) =>
-    fetchAPI<import("@/types").MenuItem>("/api/menu/items", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  updateMenuItem: (id: string, data: Partial<import("@/types").MenuItem>, token: string) =>
-    fetchAPI<import("@/types").MenuItem>(`/api/menu/items/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  // Reports
-  getDailyReport: (date: string, token: string) =>
-    fetchAPI<import("@/types").SalesReport>(`/api/reports/daily?date=${date}`, { token }),
-
-  getMonthlyReport: (month: string, token: string) =>
-    fetchAPI<import("@/types").MonthlySalesReport>(`/api/reports/monthly?month=${month}`, { token }),
-
-  // Settings
-  getSettings: (token: string) =>
-    fetchAPI<import("@/types").SeatSettings>("/api/settings", { token }),
-
-  updateSettings: (data: Partial<import("@/types").SeatSettings>, token: string) =>
-    fetchAPI<import("@/types").SeatSettings>("/api/settings", {
-      method: "PUT",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  // Users
-  getUsers: (token: string) =>
-    fetchAPI<import("@/types").User[]>("/api/users", { token }),
-
-  createUser: (data: { email: string; name: string; password: string; role: string }, token: string) =>
-    fetchAPI<import("@/types").User>("/api/users", {
-      method: "POST",
-      body: JSON.stringify(data),
-      token,
-    }),
-
-  updateUser: (id: string, data: Partial<import("@/types").User & { password?: string }>, token: string) =>
-    fetchAPI<import("@/types").User>(`/api/users/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-      token,
-    }),
+  // ---- users / settings ----
+  getUsers: () => request<UserResponse[]>("/api/users"),
+  createUser: (body: UserCreateRequest) =>
+    request<UserResponse>("/api/users", { method: "POST", json: body }),
+  updateUser: (id: string, body: UserUpdateRequest) =>
+    request<UserResponse>(`/api/users/${id}`, { method: "PUT", json: body }),
+  getSettings: () => request<SettingsResponse>("/api/settings"),
+  updateSettings: (body: SettingsUpdateRequest) =>
+    request<SettingsResponse>("/api/settings", { method: "PUT", json: body }),
 };

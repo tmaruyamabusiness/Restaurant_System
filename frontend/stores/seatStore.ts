@@ -1,40 +1,42 @@
 import { create } from "zustand";
-import { Seat } from "@/types";
+import { SeatResponse } from "@/types";
 import { api } from "@/lib/api";
 
 interface SeatState {
-  seats: Seat[];
+  seats: SeatResponse[];
   loading: boolean;
-  error: string | null;
   alertThreshold: number;
-  fetchSeats: (token: string) => Promise<void>;
-  updateSeat: (seat: Seat) => void;
-  setAlertThreshold: (minutes: number) => void;
+  fetchSeats: () => Promise<void>;
+  fetchSettings: () => Promise<void>;
+  /** WebSocket からの席更新を反映 */
+  applySeat: (seat: SeatResponse) => void;
 }
 
-export const useSeatStore = create<SeatState>((set) => ({
+export const useSeatStore = create<SeatState>((set, get) => ({
   seats: [],
   loading: false,
-  error: null,
   alertThreshold: 60,
 
-  fetchSeats: async (token: string) => {
-    set({ loading: true, error: null });
+  fetchSeats: async () => {
+    set({ loading: true });
     try {
-      const seats = await api.getSeats(token);
-      set({ seats, loading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+      const seats = await api.getSeats();
+      set({ seats });
+    } finally {
+      set({ loading: false });
     }
   },
 
-  updateSeat: (seat: Seat) => {
-    set((state) => ({
-      seats: state.seats.map((s) => (s.id === seat.id ? seat : s)),
-    }));
+  fetchSettings: async () => {
+    const settings = await api.getSettings();
+    set({ alertThreshold: settings.alert_threshold_minutes });
   },
 
-  setAlertThreshold: (minutes: number) => {
-    set({ alertThreshold: minutes });
+  applySeat: (seat) => {
+    const seats = get().seats;
+    const exists = seats.some((s) => s.id === seat.id);
+    set({
+      seats: exists ? seats.map((s) => (s.id === seat.id ? seat : s)) : [...seats, seat],
+    });
   },
 }));

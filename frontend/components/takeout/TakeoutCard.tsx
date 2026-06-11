@@ -1,104 +1,115 @@
 "use client";
 
-import { TakeoutOrder, TakeoutStatus } from "@/types";
-import { formatCurrency, formatDateTime, getStatusLabel, cn } from "@/lib/utils";
-import StatusBadge from "@/components/ui/StatusBadge";
 import Button from "@/components/ui/Button";
+import { cn, formatCurrency, formatTime } from "@/lib/utils";
+import { TakeoutResponse, TakeoutStatus } from "@/types";
 
 interface TakeoutCardProps {
-  order: TakeoutOrder;
-  expanded?: boolean;
-  onToggle: () => void;
-  onStatusChange: (id: string, status: TakeoutStatus) => void;
+  takeout: TakeoutResponse;
+  onChangeStatus: (takeout: TakeoutResponse, status: TakeoutStatus) => void;
+  onPay: (takeout: TakeoutResponse) => void;
 }
 
-const nextStatus: Partial<Record<TakeoutStatus, TakeoutStatus>> = {
-  RECEIVED: "PREPARING",
-  PREPARING: "READY",
-  READY: "PICKED_UP",
+function remainingLabel(pickupAt: string): { label: string; urgent: boolean } {
+  const diffMin = Math.round((new Date(pickupAt).getTime() - Date.now()) / 60000);
+  if (diffMin < 0) return { label: `${-diffMin}分超過 ⚠`, urgent: true };
+  return { label: `あと${diffMin}分${diffMin <= 10 ? " ⚠" : ""}`, urgent: diffMin <= 10 };
+}
+
+const BORDER: Record<TakeoutStatus, string> = {
+  RECEIVED: "border-l-slate-400",
+  PREPARING: "border-l-amber-500",
+  READY: "border-l-emerald-500",
+  PICKED_UP: "border-l-gray-300",
+  CANCELLED: "border-l-red-300",
 };
 
-export default function TakeoutCard({ order, expanded, onToggle, onStatusChange }: TakeoutCardProps) {
-  const itemsSummary = order.orders
-    .flatMap((o) => o.items)
-    .map((i) => `${i.menu_item_name} x${i.quantity}`)
-    .join(", ");
+export default function TakeoutCard({ takeout, onChangeStatus, onPay }: TakeoutCardProps) {
+  const remaining = remainingLabel(takeout.pickup_at);
+  const itemSummary = takeout.orders
+    .flatMap((o) => o.items.filter((i) => i.status !== "CANCELLED"))
+    .map((i) => `${i.item_name} ×${i.quantity}`)
+    .join("、");
+  const finished = takeout.status === "PICKED_UP" || takeout.status === "CANCELLED";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-        onClick={onToggle}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900">{order.order_number}</span>
-              <StatusBadge status={order.status} type="takeout" />
-              <span
-                className={cn(
-                  "text-xs px-2 py-0.5 rounded-full font-medium",
-                  order.payment_status === "PAID"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                )}
-              >
-                {order.payment_status}
-              </span>
-            </div>
-            <p className="text-sm text-gray-900 mt-1 font-medium">{order.customer_name}</p>
-            <p className="text-xs text-gray-500">{order.customer_phone}</p>
-          </div>
-          <div className="text-right">
-            <p className="font-bold text-gray-900">{formatCurrency(order.total)}</p>
-            <p className="text-xs text-gray-500 mt-1">受取: {formatDateTime(order.pickup_time)}</p>
-          </div>
-        </div>
-        <p className="text-xs text-gray-500 truncate">{itemsSummary}</p>
-      </div>
-
-      {expanded && (
-        <div className="border-t border-gray-100 px-4 py-3">
-          <div className="space-y-2 mb-4">
-            {order.orders.flatMap((o) =>
-              o.items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-900">{item.menu_item_name}</span>
-                    <span className="text-gray-500">x{item.quantity}</span>
-                    <StatusBadge status={item.status} type="item" />
-                  </div>
-                  <span className="text-gray-900 font-medium">{formatCurrency(item.subtotal)}</span>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-3 mb-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">小計</span>
-              <span>{formatCurrency(order.subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">税</span>
-              <span>{formatCurrency(order.tax)}</span>
-            </div>
-            <div className="flex justify-between font-bold mt-1 pt-1 border-t border-gray-200">
-              <span>合計</span>
-              <span>{formatCurrency(order.total)}</span>
-            </div>
-          </div>
-
-          {nextStatus[order.status] && (
-            <Button
-              onClick={() => onStatusChange(order.id, nextStatus[order.status]!)}
-              className="w-full"
+    <div
+      className={cn(
+        "rounded-xl border border-gray-200 border-l-[5px] bg-white p-4",
+        BORDER[takeout.status],
+        remaining.urgent && !finished && "border-l-red-500"
+      )}
+    >
+      <div className="mb-2 flex items-start justify-between">
+        <div>
+          <p className="text-[22px] font-extrabold text-gray-900">
+            {formatTime(takeout.pickup_at)}
+          </p>
+          {!finished && (
+            <p
+              className={cn(
+                "text-xs font-semibold",
+                remaining.urgent ? "text-red-600" : "text-gray-500"
+              )}
             >
-              {`${getStatusLabel(nextStatus[order.status]!)}に変更`}
-            </Button>
+              {remaining.label}
+            </p>
           )}
         </div>
+        <span
+          className={cn(
+            "rounded-full px-2.5 py-1 text-xs font-bold",
+            takeout.paid ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+          )}
+        >
+          {takeout.paid ? "前払済" : "未払"}
+        </span>
+      </div>
+
+      <p className="text-[15px] font-bold text-gray-900">
+        {takeout.customer_name} 様（#T{takeout.orders[0]?.order_number ?? "-"}）
+      </p>
+      <a href={`tel:${takeout.phone_number}`} className="text-[13px] text-blue-600">
+        📞 {takeout.phone_number}
+      </a>
+      <p className="my-2.5 text-[13px] leading-relaxed text-gray-500">
+        {itemSummary || "(商品なし)"} ・ <b>{formatCurrency(takeout.total_amount)}</b>
+      </p>
+      {takeout.notes && <p className="mb-2 text-xs text-amber-600">備考: {takeout.notes}</p>}
+
+      {takeout.status === "RECEIVED" && (
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => onChangeStatus(takeout, "PREPARING")}
+        >
+          受付済 — 調理開始
+        </Button>
       )}
+      {takeout.status === "PREPARING" && (
+        <Button
+          className="w-full bg-amber-600 hover:bg-amber-700 focus:ring-amber-500"
+          onClick={() => onChangeStatus(takeout, "READY")}
+        >
+          調理中 — 準備完了にする
+        </Button>
+      )}
+      {takeout.status === "READY" &&
+        (takeout.paid ? (
+          <Button
+            className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+            onClick={() => onChangeStatus(takeout, "PICKED_UP")}
+          >
+            ✓ 受け渡し完了
+          </Button>
+        ) : (
+          <Button
+            className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+            onClick={() => onPay(takeout)}
+          >
+            💴 会計して受け渡し
+          </Button>
+        ))}
     </div>
   );
 }

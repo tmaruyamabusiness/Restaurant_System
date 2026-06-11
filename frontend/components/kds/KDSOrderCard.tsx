@@ -1,85 +1,98 @@
 "use client";
 
-import { KDSOrder, OrderItemStatus } from "@/types";
-import { cn } from "@/lib/utils";
-import StatusBadge from "@/components/ui/StatusBadge";
+import { cn, formatTime, getElapsedMinutes } from "@/lib/utils";
+import { OrderItemStatus, OrderResponse } from "@/types";
 
 interface KDSOrderCardProps {
-  order: KDSOrder;
+  order: OrderResponse;
   onItemStatusChange: (itemId: string, status: OrderItemStatus) => void;
+  onCompleteAll: (order: OrderResponse) => void;
 }
 
-const nextItemStatus: Partial<Record<OrderItemStatus, OrderItemStatus>> = {
-  PENDING: "COOKING",
-  COOKING: "READY",
-};
+function urgency(elapsed: number): "ok" | "warn" | "late" {
+  if (elapsed >= 10) return "late";
+  if (elapsed >= 5) return "warn";
+  return "ok";
+}
 
-export default function KDSOrderCard({ order, onItemStatusChange }: KDSOrderCardProps) {
-  const elapsed = order.elapsed_minutes;
-  let borderColor = "border-green-400";
-  let headerBg = "bg-green-50";
-  if (elapsed > 20) {
-    borderColor = "border-red-400";
-    headerBg = "bg-red-50";
-  } else if (elapsed > 10) {
-    borderColor = "border-amber-400";
-    headerBg = "bg-amber-50";
-  }
+const BORDER = {
+  ok: "border-l-emerald-500",
+  warn: "border-l-amber-500",
+  late: "border-l-red-500",
+} as const;
+const TIME_CHIP = {
+  ok: "bg-emerald-950 text-emerald-400",
+  warn: "bg-amber-950 text-amber-400",
+  late: "bg-red-950 text-red-400 animate-pulse",
+} as const;
+
+export default function KDSOrderCard({ order, onItemStatusChange, onCompleteAll }: KDSOrderCardProps) {
+  const elapsed = getElapsedMinutes(order.created_at);
+  const u = urgency(elapsed);
+  const title =
+    order.order_type === "TAKEOUT"
+      ? `🥡 ${order.customer_name ?? "テイクアウト"} #T${order.order_number}`
+      : `席 #${order.seat_number ?? "-"}`;
+  const activeItems = order.items.filter(
+    (i) => i.status === "PENDING" || i.status === "COOKING"
+  );
 
   return (
-    <div className={cn("rounded-xl border-2 overflow-hidden shadow-sm", borderColor)}>
-      <div className={cn("px-4 py-3 flex items-center justify-between", headerBg)}>
-        <div>
-          <span className="font-bold text-gray-900 text-lg">{order.order_number}</span>
-          <span className="text-sm text-gray-600 ml-2">
-            {order.order_type === "DINE_IN"
-              ? `席 #${order.seat_number}`
-              : `テイクアウト - ${order.customer_name}`}
-          </span>
-        </div>
-        <div className="text-right">
-          <span
-            className={cn(
-              "text-sm font-bold",
-              elapsed > 20 ? "text-red-600" : elapsed > 10 ? "text-amber-600" : "text-green-600"
-            )}
+    <div className={cn("overflow-hidden rounded-xl border-l-[7px] bg-slate-900", BORDER[u])}>
+      <div className="flex items-center justify-between bg-white/5 px-3.5 py-3">
+        <span className="text-lg font-extrabold text-white">{title}</span>
+        <span className={cn("rounded-full px-3 py-1 text-base font-extrabold", TIME_CHIP[u])}>
+          {elapsed}分
+        </span>
+      </div>
+      {order.order_type === "TAKEOUT" && order.pickup_at && (
+        <p className="bg-amber-950/60 px-3.5 py-1.5 text-xs font-bold text-amber-400">
+          ⚠ {formatTime(order.pickup_at)} 受取予定
+        </p>
+      )}
+
+      {order.items
+        .filter((i) => i.status !== "CANCELLED" && i.status !== "SERVED")
+        .map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-2.5 border-b border-white/5 px-3.5 py-2.5"
           >
-            {elapsed}分
-          </span>
-        </div>
-      </div>
-      <div className="p-3 space-y-2">
-        {order.items.map((item) => {
-          const canAdvance = nextItemStatus[item.status];
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (canAdvance) onItemStatusChange(item.id, canAdvance);
-              }}
-              disabled={!canAdvance}
-              className={cn(
-                "w-full text-left flex items-center justify-between p-3 rounded-lg border transition-all min-h-[56px]",
-                canAdvance
-                  ? "hover:shadow-md cursor-pointer active:scale-[0.98]"
-                  : "cursor-default",
-                item.status === "PENDING" && "bg-gray-50 border-gray-200",
-                item.status === "COOKING" && "bg-amber-50 border-amber-200",
-                item.status === "READY" && "bg-green-50 border-green-200"
+            <span className="w-9 text-base font-extrabold text-white">×{item.quantity}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] text-slate-200">{item.item_name}</p>
+              {item.notes && (
+                <p className="text-xs font-bold text-red-400">⚠ {item.notes}</p>
               )}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-gray-700 w-8">{item.quantity}x</span>
-                <div>
-                  <p className="font-semibold text-gray-900">{item.menu_item_name}</p>
-                  {item.notes && <p className="text-xs text-gray-500 mt-0.5">{item.notes}</p>}
-                </div>
-              </div>
-              <StatusBadge status={item.status} type="item" />
-            </button>
-          );
-        })}
-      </div>
+            </div>
+            {item.status === "PENDING" ? (
+              <button
+                onClick={() => onItemStatusChange(item.id, "COOKING")}
+                className="min-h-[40px] whitespace-nowrap rounded-lg bg-amber-700 px-3 text-xs font-bold text-white hover:bg-amber-600"
+              >
+                ▶ 調理開始
+              </button>
+            ) : (
+              <button
+                onClick={() => onItemStatusChange(item.id, "SERVED")}
+                className="min-h-[40px] whitespace-nowrap rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-600"
+              >
+                ✓ 完了
+              </button>
+            )}
+          </div>
+        ))}
+
+      {activeItems.length > 1 && (
+        <div className="p-3">
+          <button
+            onClick={() => onCompleteAll(order)}
+            className="min-h-[44px] w-full rounded-lg border border-teal-800 bg-teal-950 text-[13px] font-bold text-teal-300 hover:bg-teal-900"
+          >
+            すべて完了にする
+          </button>
+        </div>
+      )}
     </div>
   );
 }

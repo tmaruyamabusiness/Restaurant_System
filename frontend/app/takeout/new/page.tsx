@@ -1,65 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/authStore";
-import { useTakeoutStore } from "@/stores/takeoutStore";
-import { PaymentMethod } from "@/types";
-import { api } from "@/lib/api";
-import { formatCurrency, cn } from "@/lib/utils";
 import Header from "@/components/layout/Header";
+import MenuSelector from "@/components/order/MenuSelector";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import MenuSelector from "@/components/order/MenuSelector";
+import { api } from "@/lib/api";
+import { cn, formatDateTimeLocalInput, formatTime } from "@/lib/utils";
+import { useTakeoutStore } from "@/stores/takeoutStore";
+import { toast, withToast } from "@/stores/toastStore";
+import { OrderItemCreate } from "@/types";
+
+const STEPS = ["顧客情報", "商品選択", "確認"] as const;
+const QUICK_MINUTES = [15, 30, 45];
+
+/** 数字以外を除去してハイフン整形(0X0-XXXX-XXXX 系の簡易整形) */
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+function isValidPhone(phone: string): boolean {
+  return /^0\d{1,3}-?\d{2,4}-?\d{3,4}$/.test(phone);
+}
+
+/** ローカル(日本)時刻のまま datetime-local 値を作る。toISOString のUTCズレを避ける */
+function plusMinutesLocal(minutes: number): string {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + minutes);
+  return formatDateTimeLocalInput(d);
+}
 
 export default function NewTakeoutPage() {
   const router = useRouter();
-  const { token } = useAuthStore();
-  const { addTakeoutOrder } = useTakeoutStore();
-  const [step, setStep] = useState<"info" | "menu" | "review">("info");
+  const applyTakeout = useTakeoutStore((s) => s.applyTakeout);
+  const [step, setStep] = useState(0);
   const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [pickupTime, setPickupTime] = useState("");
-  const [prepay, setPrepay] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
-  const [selectedItems, setSelectedItems] = useState<{ menu_item_id: string; quantity: number; notes?: string }[]>([]);
+  const [phone, setPhone] = useState("");
+  const [pickupLocal, setPickupLocal] = useState(plusMinutesLocal(30));
+  const [quickSel, setQuickSel] = useState<number | null>(30);
+  const [notes, setNotes] = useState("");
+  const [items, setItems] = useState<OrderItemCreate[]>([]);
+  const [itemsPreview, setItemsPreview] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  const handleMenuSubmit = (items: { menu_item_id: string; quantity: number; notes?: string }[]) => {
-    setSelectedItems(items);
-    setStep("review");
-  };
+  const infoValid = customerName.trim().length > 0 && isValidPhone(phone) && !!pickupLocal;
+  const pickupIso = useMemo(
+    () => (pickupLocal ? new Date(pickupLocal).toISOString() : ""),
+    [pickupLocal]
+  );
 
   const handleSubmit = async () => {
-    if (!token) return;
     setLoading(true);
-    setError("");
-    try {
-      const order = await api.createTakeoutOrder(
-        {
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          pickup_time: new Date(pickupTime).toISOString(),
-          items: selectedItems,
-          prepay,
-          payment_method: prepay ? paymentMethod : undefined,
-        },
-        token
-      );
-      addTakeoutOrder(order);
+    const created = await withToast(() =>
+      api.createTakeoutOrder({
+        customer_name: customerName.trim(),
+        phone_number: phone,
+        pickup_at: pickupIso,
+        notes: notes.trim() || undefined,
+        items,
+      })
+    );
+    setLoading(false);
+    if (created) {
+      applyTakeout(created);
+      toast.success(`${created.customer_name} 様のテイクアウトを受け付けました`);
       router.push("/takeout");
-    } catch (err) {
-      setError((err as Error).message || "Failed to create order");
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const getDefaultPickupTime = () => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() + 30);
-    return d.toISOString().slice(0, 16);
   };
 
   return (
@@ -73,157 +83,146 @@ export default function NewTakeoutPage() {
         }
       />
 
-      <div className="max-w-2xl">
-        <div className="flex items-center gap-2 mb-6">
-          {["info", "menu", "review"].map((s, i) => (
-            <div key={s} className="flex items-center">
-              <div
+      <div className="mb-5 flex items-center">
+        {STEPS.map((label, i) => (
+          <div key={label} className="flex items-center">
+            {i > 0 && <div className="mx-2 h-0.5 w-9 bg-gray-200" />}
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-xs",
+                i === step ? "font-bold text-blue-700" : i < step ? "text-emerald-700" : "text-gray-400"
+              )}
+            >
+              <span
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold",
-                  step === s
+                  "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold",
+                  i === step
                     ? "bg-blue-600 text-white"
-                    : ["info", "menu", "review"].indexOf(step) > i
-                    ? "bg-green-500 text-white"
-                    : "bg-gray-200 text-gray-500"
+                    : i < step
+                      ? "bg-emerald-500 text-white"
+                      : "bg-gray-200 text-gray-500"
                 )}
               >
-                {i + 1}
-              </div>
-              {i < 2 && <div className="w-12 h-0.5 bg-gray-200 mx-1" />}
-            </div>
-          ))}
-        </div>
+                {i < step ? "✓" : i + 1}
+              </span>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
 
-        {step === "info" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">お客様情報</h3>
-            <Input
-              id="name"
-              label="お客様名"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="お客様名"
-              required
-            />
+      {step === 0 && (
+        <div className="max-w-lg space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+          <Input
+            id="customerName"
+            label="お客様のお名前 *"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="例: 佐藤"
+          />
+          <div>
             <Input
               id="phone"
-              label="電話番号"
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
+              label="電話番号 *"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="090-1234-5678"
-              required
+              error={phone && !isValidPhone(phone) ? "電話番号の形式が正しくありません" : undefined}
             />
-            <Input
-              id="pickup"
-              label="受取時間"
-              type="datetime-local"
-              value={pickupTime || getDefaultPickupTime()}
-              onChange={(e) => setPickupTime(e.target.value)}
-              required
-            />
-
-            <div className="pt-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prepay}
-                  onChange={(e) => setPrepay(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <span className="text-sm text-gray-700">前払い</span>
-              </label>
-
-              {prepay && (
-                <div className="mt-3 flex gap-2">
-                  {(["CASH", "CREDIT_CARD", "QR"] as PaymentMethod[]).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setPaymentMethod(m)}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium min-h-[44px]",
-                        paymentMethod === m
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      )}
-                    >
-                      {({"CASH": "現金", "CREDIT_CARD": "クレジットカード", "QR": "QR決済"} as Record<string, string>)[m] || m}
-                    </button>
-                  ))}
-                </div>
-              )}
+            {phone && isValidPhone(phone) && (
+              <p className="mt-1 text-xs font-semibold text-emerald-600">✓ 形式チェック済み</p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">受取時刻 *</label>
+            <div className="mb-2 flex flex-wrap gap-2">
+              {QUICK_MINUTES.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setPickupLocal(plusMinutesLocal(m));
+                    setQuickSel(m);
+                  }}
+                  className={cn(
+                    "min-h-[40px] rounded-full border px-3.5 text-[13px] font-semibold",
+                    quickSel === m
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-gray-300 bg-white text-gray-700"
+                  )}
+                >
+                  +{m}分（{formatTime(new Date(Date.now() + m * 60000).toISOString())}）
+                </button>
+              ))}
             </div>
-
-            <Button
-              onClick={() => {
-                if (!pickupTime) setPickupTime(getDefaultPickupTime());
-                setStep("menu");
+            <Input
+              type="datetime-local"
+              value={pickupLocal}
+              onChange={(e) => {
+                setPickupLocal(e.target.value);
+                setQuickSel(null);
               }}
-              disabled={!customerName || !customerPhone}
-              className="w-full"
-            >
-              次へ - 商品選択
+            />
+            <p className="mt-1 text-xs text-gray-400">店舗のタイムゾーン（日本時間）で指定します</p>
+          </div>
+          <Input
+            id="notes"
+            label="備考"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="アレルギー対応など"
+          />
+          <Button size="lg" className="w-full" disabled={!infoValid} onClick={() => setStep(1)}>
+            次へ — 商品を選択
+          </Button>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <MenuSelector
+            orderType="TAKEOUT"
+            submitLabel="この内容で確認へ"
+            onSubmit={(selected) => {
+              setItems(selected);
+              setItemsPreview(`${selected.reduce((s, i) => s + i.quantity, 0)}品`);
+              setStep(2);
+            }}
+            onCancel={() => setStep(0)}
+          />
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="max-w-lg space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="text-sm font-semibold text-gray-900">受付内容の確認</h3>
+          <dl className="space-y-2 rounded-lg bg-gray-50 p-4 text-sm">
+            {[
+              ["お名前", `${customerName} 様`],
+              ["電話番号", phone],
+              ["受取時刻", new Date(pickupLocal).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })],
+              ["商品", itemsPreview],
+              ["備考", notes || "なし"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between">
+                <dt className="text-gray-500">{k}</dt>
+                <dd className="font-semibold text-gray-900">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-xs text-gray-400">
+            お支払いは受け渡し時、またはテイクアウト一覧の「会計して受け渡し」から行えます
+          </p>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setStep(1)}>
+              戻る
+            </Button>
+            <Button className="flex-1" size="lg" disabled={loading} onClick={handleSubmit}>
+              {loading ? "送信中..." : "受付を確定する"}
             </Button>
           </div>
-        )}
-
-        {step === "menu" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">メニューから選択</h3>
-            <MenuSelector
-              onSubmit={handleMenuSubmit}
-              onCancel={() => setStep("info")}
-            />
-          </div>
-        )}
-
-        {step === "review" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">注文内容確認</h3>
-
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">お客様</span>
-                <span className="font-medium">{customerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">電話番号</span>
-                <span className="font-medium">{customerPhone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">受取時間</span>
-                <span className="font-medium">
-                  {new Date(pickupTime || getDefaultPickupTime()).toLocaleString("ja-JP")}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">支払い</span>
-                <span className="font-medium">{prepay ? `前払い（${({"CASH": "現金", "CREDIT_CARD": "クレジットカード", "QR": "QR決済"} as Record<string, string>)[paymentMethod] || paymentMethod}）` : "受取時支払い"}</span>
-              </div>
-            </div>
-
-            <div className="border border-gray-200 rounded-lg p-3">
-              <p className="text-sm text-gray-600 mb-2">{selectedItems.length}品選択済み</p>
-              <Button variant="outline" size="sm" onClick={() => setStep("menu")}>
-                商品を変更
-              </Button>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>
-            )}
-
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep("menu")} className="flex-1">
-                戻る
-              </Button>
-              <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-                {loading ? "作成中..." : "注文を確定"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

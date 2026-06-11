@@ -1,361 +1,373 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuthStore } from "@/stores/authStore";
-import { useSeatStore } from "@/stores/seatStore";
-import { Seat, User, UserRole, SeatType } from "@/types";
-import { api } from "@/lib/api";
-import { getSeatTypeLabel, cn } from "@/lib/utils";
+import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
+import Select from "@/components/ui/Select";
+import { api } from "@/lib/api";
+import { cn, getSeatTypeLabel, getStatusLabel } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
+import { withToast } from "@/stores/toastStore";
+import { SeatResponse, SeatType, UserResponse, UserRole } from "@/types";
+
+type Tab = "store" | "seats" | "users";
+
+interface UserForm {
+  id?: string;
+  username: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  is_active: boolean;
+}
 
 export default function SettingsPage() {
-  const { token, user: currentUser } = useAuthStore();
-  const { seats, fetchSeats, alertThreshold, setAlertThreshold } = useSeatStore();
-  const [users, setUsers] = useState<User[]>([]);
-  const [thresholdInput, setThresholdInput] = useState(alertThreshold);
-  const [loading, setLoading] = useState(true);
+  const { isAuthenticated, user } = useAuthStore();
+  const [tab, setTab] = useState<Tab>("store");
 
-  const [seatModal, setSeatModal] = useState(false);
-  const [editSeat, setEditSeat] = useState<Seat | null>(null);
-  const [seatNumber, setSeatNumber] = useState("");
-  const [seatType, setSeatType] = useState<SeatType>("COUNTER");
-  const [seatCapacity, setSeatCapacity] = useState(1);
-  const [seatOrder, setSeatOrder] = useState(0);
+  // ---- 店舗設定 ----
+  const [storeName, setStoreName] = useState("");
+  const [alertThreshold, setAlertThreshold] = useState(60);
+  const [savingStore, setSavingStore] = useState(false);
 
-  const [userModal, setUserModal] = useState(false);
-  const [editUser, setEditUser] = useState<User | null>(null);
-  const [userName, setUserName] = useState("");
-  const [userEmail, setUserEmail] = useState("");
-  const [userPassword, setUserPassword] = useState("");
-  const [userRole, setUserRole] = useState<UserRole>("STAFF");
+  // ---- 席 ----
+  const [seats, setSeats] = useState<SeatResponse[]>([]);
+  const [seatModal, setSeatModal] = useState<{
+    seat_number: string;
+    seat_type: SeatType;
+    capacity: number;
+  } | null>(null);
 
-  const isOwner = currentUser?.role === "OWNER";
+  // ---- ユーザー ----
+  const [users, setUsers] = useState<UserResponse[]>([]);
+  const [userModal, setUserModal] = useState<UserForm | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const isOwner = user?.role === "OWNER";
+  const canManage = isOwner || user?.role === "MANAGER";
+
+  const load = useCallback(async () => {
+    const settings = await withToast(() => api.getSettings());
+    if (settings) {
+      setStoreName(settings.store_name);
+      setAlertThreshold(settings.alert_threshold_minutes);
+    }
+    const seatList = await withToast(() => api.getSeats());
+    if (seatList) setSeats(seatList);
+    if (canManage) {
+      const userList = await withToast(() => api.getUsers());
+      if (userList) setUsers(userList);
+    }
+  }, [canManage]);
 
   useEffect(() => {
-    if (!token) return;
-    const load = async () => {
-      try {
-        await fetchSeats(token);
-        if (isOwner) {
-          const u = await api.getUsers(token);
-          setUsers(u);
-        }
-        const settings = await api.getSettings(token);
-        setThresholdInput(settings.alert_threshold_minutes);
-        setAlertThreshold(settings.alert_threshold_minutes);
-      } catch {
-        // handle error
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [token, isOwner, fetchSeats, setAlertThreshold]);
+    if (isAuthenticated) load();
+  }, [isAuthenticated, load]);
 
-  const saveThreshold = async () => {
-    if (!token) return;
-    try {
-      await api.updateSettings({ alert_threshold_minutes: thresholdInput }, token);
-      setAlertThreshold(thresholdInput);
-    } catch {
-      // handle error
-    }
-  };
-
-  const openSeatModal = (seat?: Seat) => {
-    if (seat) {
-      setEditSeat(seat);
-      setSeatNumber(seat.number);
-      setSeatType(seat.type);
-      setSeatCapacity(seat.capacity);
-      setSeatOrder(seat.sort_order);
-    } else {
-      setEditSeat(null);
-      setSeatNumber(`S${seats.length + 1}`);
-      setSeatType("COUNTER");
-      setSeatCapacity(1);
-      setSeatOrder(seats.length);
-    }
-    setSeatModal(true);
+  const saveStore = async () => {
+    setSavingStore(true);
+    await withToast(
+      () =>
+        api.updateSettings({
+          store_name: storeName,
+          alert_threshold_minutes: alertThreshold,
+        }),
+      "店舗設定を保存しました"
+    );
+    setSavingStore(false);
   };
 
   const saveSeat = async () => {
-    if (!token) return;
-    try {
-      if (editSeat) {
-        await api.updateSeat(
-          editSeat.id,
-          { seat_number: seatNumber, seat_type: seatType, capacity: seatCapacity, sort_order: seatOrder },
-          token
-        );
-      } else {
-        await api.createSeat(
-          { number: seatNumber, type: seatType as string, capacity: seatCapacity, sort_order: seatOrder },
-          token
-        );
-      }
-      await fetchSeats(token);
-      setSeatModal(false);
-    } catch {
-      // handle error
+    if (!seatModal) return;
+    setSaving(true);
+    const created = await withToast(
+      () =>
+        api.createSeat({
+          seat_number: seatModal.seat_number,
+          seat_type: seatModal.seat_type,
+          capacity: seatModal.capacity,
+          sort_order: seats.length,
+        }),
+      `席 #${seatModal.seat_number} を追加しました`
+    );
+    setSaving(false);
+    if (created) {
+      setSeatModal(null);
+      await load();
     }
-  };
-
-  const openUserModal = (user?: User) => {
-    if (user) {
-      setEditUser(user);
-      setUserName(user.name);
-      setUserEmail(user.email);
-      setUserPassword("");
-      setUserRole(user.role);
-    } else {
-      setEditUser(null);
-      setUserName("");
-      setUserEmail("");
-      setUserPassword("");
-      setUserRole("STAFF");
-    }
-    setUserModal(true);
   };
 
   const saveUser = async () => {
-    if (!token) return;
-    try {
-      if (editUser) {
-        const data: any = { name: userName, email: userEmail, role: userRole };
-        if (userPassword) data.password = userPassword;
-        await api.updateUser(editUser.id, data, token);
-      } else {
-        await api.createUser(
-          { name: userName, email: userEmail, password: userPassword, role: userRole },
-          token
+    if (!userModal) return;
+    setSaving(true);
+    const result = userModal.id
+      ? await withToast(
+          () =>
+            api.updateUser(userModal.id!, {
+              username: userModal.username,
+              email: userModal.email,
+              role: userModal.role,
+              is_active: userModal.is_active,
+              password: userModal.password || undefined,
+            }),
+          "ユーザーを更新しました"
+        )
+      : await withToast(
+          () =>
+            api.createUser({
+              username: userModal.username,
+              email: userModal.email,
+              password: userModal.password,
+              role: userModal.role,
+            }),
+          "スタッフを追加しました"
         );
-      }
-      const u = await api.getUsers(token);
-      setUsers(u);
-      setUserModal(false);
-    } catch {
-      // handle error
+    setSaving(false);
+    if (result) {
+      setUserModal(null);
+      await load();
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const TABS: { key: Tab; label: string; show: boolean }[] = [
+    { key: "store", label: "店舗設定", show: true },
+    { key: "seats", label: "席管理", show: canManage },
+    { key: "users", label: "スタッフ管理", show: canManage },
+  ];
 
   return (
     <div>
       <Header title="設定" />
 
-      <div className="max-w-3xl space-y-8">
-        <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">アラートしきい値</h3>
-          <p className="text-sm text-gray-500 mb-3">
-            指定時間以上着席している席をハイライト表示します。
-          </p>
-          <div className="flex gap-3 items-end">
-            <Input
-              id="threshold"
-              label="分"
-              type="number"
-              min={1}
-              value={thresholdInput}
-              onChange={(e) => setThresholdInput(Number(e.target.value))}
-              className="w-32"
-            />
-            <Button onClick={saveThreshold}>保存</Button>
-          </div>
-        </section>
+      <div className="mb-5 flex gap-2">
+        {TABS.filter((t) => t.show).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "min-h-[42px] rounded-lg border px-4 text-sm",
+              tab === t.key
+                ? "border-slate-900 bg-slate-900 font-bold text-white"
+                : "border-gray-300 bg-white text-gray-600"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">席管理</h3>
-            <Button size="sm" onClick={() => openSeatModal()}>
+      {tab === "store" && (
+        <div className="max-w-lg space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+          <Input
+            label="店舗名"
+            value={storeName}
+            onChange={(e) => setStoreName(e.target.value)}
+            disabled={!canManage}
+          />
+          <Input
+            label="長時間滞在アラート（分）"
+            type="number"
+            min={1}
+            max={600}
+            value={alertThreshold}
+            onChange={(e) => setAlertThreshold(Math.max(1, Number(e.target.value)))}
+            disabled={!canManage}
+          />
+          <p className="text-xs text-gray-400">
+            フロアマップで滞在時間がこの分数を超えた席に赤いアラートを表示します
+          </p>
+          {canManage && (
+            <Button onClick={saveStore} disabled={savingStore} className="w-full">
+              {savingStore ? "保存中..." : "保存"}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {tab === "seats" && (
+        <div className="max-w-2xl rounded-xl border border-gray-200 bg-white p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">席一覧（{seats.length}席）</h3>
+            <Button
+              size="sm"
+              onClick={() => setSeatModal({ seat_number: "", seat_type: "TABLE", capacity: 4 })}
+            >
               + 席を追加
             </Button>
           </div>
-          <div className="space-y-2">
-            {seats
+          <div className="divide-y divide-gray-50">
+            {[...seats]
               .sort((a, b) => a.sort_order - b.sort_order)
-              .map((seat) => (
-                <div
-                  key={seat.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="font-bold text-gray-900 w-12">#{seat.number}</span>
-                    <span className="text-sm text-gray-600">{getSeatTypeLabel(seat.type)}</span>
-                    <span className="text-sm text-gray-500">定員: {seat.capacity}</span>
-                    <span className="text-xs text-gray-400">並び順: {seat.sort_order}</span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => openSeatModal(seat)}>
-                    編集
-                  </Button>
+              .map((s) => (
+                <div key={s.id} className="flex items-center gap-3 py-2.5 text-sm">
+                  <b className="w-14 text-gray-900">#{s.seat_number}</b>
+                  <span className="flex-1 text-gray-600">{getSeatTypeLabel(s.seat_type)}</span>
+                  <span className="text-gray-500">定員 {s.capacity}名</span>
                 </div>
               ))}
-            {seats.length === 0 && (
-              <p className="text-center text-gray-400 py-4">席が未設定です</p>
-            )}
           </div>
-        </section>
+        </div>
+      )}
 
-        {isOwner && (
-          <section className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">スタッフ管理</h3>
-              <Button size="sm" onClick={() => openUserModal()}>
+      {tab === "users" && (
+        <div className="max-w-2xl rounded-xl border border-gray-200 bg-white p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">スタッフ一覧</h3>
+            {isOwner && (
+              <Button
+                size="sm"
+                onClick={() =>
+                  setUserModal({
+                    username: "",
+                    email: "",
+                    password: "",
+                    role: "STAFF",
+                    is_active: true,
+                  })
+                }
+              >
                 + スタッフ追加
               </Button>
-            </div>
-            <div className="space-y-2">
-              {users.map((u) => (
-                <div
-                  key={u.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="font-medium text-gray-900">{u.name}</p>
-                      <p className="text-xs text-gray-500">{u.email}</p>
-                    </div>
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-medium",
-                        u.role === "OWNER"
-                          ? "bg-purple-100 text-purple-700"
-                          : u.role === "MANAGER"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700"
-                      )}
-                    >
-                      {u.role}
-                    </span>
-                    {!u.active && (
-                      <span className="text-xs text-red-500">無効</span>
-                    )}
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => openUserModal(u)}>
+            )}
+          </div>
+          <div className="divide-y divide-gray-50">
+            {users.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 py-2.5 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className={cn("font-semibold text-gray-900", !u.is_active && "text-gray-400")}>
+                    {u.username}
+                    {!u.is_active && <span className="ml-2 text-xs">(無効)</span>}
+                  </p>
+                  <p className="text-xs text-gray-400">{u.email}</p>
+                </div>
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  {getStatusLabel(u.role)}
+                </span>
+                {isOwner && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setUserModal({
+                        id: u.id,
+                        username: u.username,
+                        email: u.email,
+                        password: "",
+                        role: u.role,
+                        is_active: u.is_active,
+                      })
+                    }
+                  >
                     編集
                   </Button>
-                </div>
-              ))}
-              {users.length === 0 && (
-                <p className="text-center text-gray-400 py-4">スタッフがいません</p>
-              )}
-            </div>
-          </section>
-        )}
-      </div>
-
-      <Modal isOpen={seatModal} onClose={() => setSeatModal(false)} title={editSeat ? "席を編集" : "席を追加"}>
-        <div className="space-y-4">
-          <Input
-            id="seatNum"
-            label="席番号"
-            type="text"
-            value={seatNumber}
-            onChange={(e) => setSeatNumber(e.target.value)}
-          />
-          <Select
-            id="seatType"
-            label="種別"
-            value={seatType}
-            onChange={(e) => {
-              const t = e.target.value as SeatType;
-              setSeatType(t);
-              if (t === "COUNTER") setSeatCapacity(1);
-              else if (t === "TABLE_2") setSeatCapacity(2);
-              else setSeatCapacity(4);
-            }}
-            options={[
-              { value: "COUNTER", label: "カウンター" },
-              { value: "TABLE_2", label: "2人テーブル" },
-              { value: "TABLE_4", label: "4人テーブル" },
-            ]}
-          />
-          <Input
-            id="seatCap"
-            label="定員"
-            type="number"
-            min={1}
-            value={seatCapacity}
-            onChange={(e) => setSeatCapacity(Number(e.target.value))}
-          />
-          <Input
-            id="seatOrd"
-            label="表示順"
-            type="number"
-            value={seatOrder}
-            onChange={(e) => setSeatOrder(Number(e.target.value))}
-          />
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setSeatModal(false)} className="flex-1">
-              キャンセル
-            </Button>
-            <Button onClick={saveSeat} className="flex-1">
-              保存
-            </Button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
+      )}
+
+      <Modal isOpen={!!seatModal} onClose={() => setSeatModal(null)} title="席を追加">
+        {seatModal && (
+          <div className="space-y-4">
+            <Input
+              label="席番号"
+              value={seatModal.seat_number}
+              onChange={(e) => setSeatModal({ ...seatModal, seat_number: e.target.value })}
+              placeholder="例: 6, C4, R3"
+            />
+            <Select
+              label="席タイプ"
+              value={seatModal.seat_type}
+              options={[
+                { value: "TABLE", label: "テーブル" },
+                { value: "COUNTER", label: "カウンター" },
+                { value: "PRIVATE", label: "個室" },
+              ]}
+              onChange={(e) => setSeatModal({ ...seatModal, seat_type: e.target.value as SeatType })}
+            />
+            <Input
+              label="定員"
+              type="number"
+              min={1}
+              max={50}
+              value={seatModal.capacity}
+              onChange={(e) =>
+                setSeatModal({ ...seatModal, capacity: Math.max(1, Number(e.target.value)) })
+              }
+            />
+            <Button
+              className="w-full"
+              disabled={saving || !seatModal.seat_number.trim()}
+              onClick={saveSeat}
+            >
+              {saving ? "保存中..." : "追加"}
+            </Button>
+          </div>
+        )}
       </Modal>
 
-      <Modal isOpen={userModal} onClose={() => setUserModal(false)} title={editUser ? "スタッフ編集" : "スタッフ追加"}>
-        <div className="space-y-4">
-          <Input
-            id="uName"
-            label="名前"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-            placeholder="氏名"
-          />
-          <Input
-            id="uEmail"
-            label="メールアドレス"
-            type="email"
-            value={userEmail}
-            onChange={(e) => setUserEmail(e.target.value)}
-            placeholder="email@restaurant.com"
-          />
-          <Input
-            id="uPass"
-            label={editUser ? "新パスワード（変更しない場合は空欄）" : "パスワード"}
-            type="password"
-            value={userPassword}
-            onChange={(e) => setUserPassword(e.target.value)}
-            placeholder={editUser ? "変更しない場合は空欄" : "パスワード"}
-          />
-          <Select
-            id="uRole"
-            label="役割"
-            value={userRole}
-            onChange={(e) => setUserRole(e.target.value as UserRole)}
-            options={[
-              { value: "STAFF", label: "スタッフ" },
-              { value: "MANAGER", label: "マネージャー" },
-              { value: "OWNER", label: "オーナー" },
-            ]}
-          />
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setUserModal(false)} className="flex-1">
-              キャンセル
-            </Button>
+      <Modal
+        isOpen={!!userModal}
+        onClose={() => setUserModal(null)}
+        title={userModal?.id ? "スタッフの編集" : "スタッフ追加"}
+      >
+        {userModal && (
+          <div className="space-y-4">
+            <Input
+              label="名前"
+              value={userModal.username}
+              onChange={(e) => setUserModal({ ...userModal, username: e.target.value })}
+            />
+            <Input
+              label="メールアドレス"
+              type="email"
+              value={userModal.email}
+              onChange={(e) => setUserModal({ ...userModal, email: e.target.value })}
+            />
+            <Input
+              label={userModal.id ? "新しいパスワード（変更時のみ）" : "パスワード（8文字以上）"}
+              type="password"
+              value={userModal.password}
+              onChange={(e) => setUserModal({ ...userModal, password: e.target.value })}
+            />
+            <Select
+              label="権限"
+              value={userModal.role}
+              options={[
+                { value: "STAFF", label: "スタッフ" },
+                { value: "MANAGER", label: "マネージャー" },
+                { value: "OWNER", label: "オーナー" },
+              ]}
+              onChange={(e) => setUserModal({ ...userModal, role: e.target.value as UserRole })}
+            />
+            {userModal.id && (
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={userModal.is_active}
+                  onChange={(e) => setUserModal({ ...userModal, is_active: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                有効なアカウント
+              </label>
+            )}
             <Button
+              className="w-full"
+              disabled={
+                saving ||
+                !userModal.username.trim() ||
+                !userModal.email.trim() ||
+                (!userModal.id && userModal.password.length < 8)
+              }
               onClick={saveUser}
-              disabled={!userName || !userEmail || (!editUser && !userPassword)}
-              className="flex-1"
             >
-              保存
+              {saving ? "保存中..." : "保存"}
             </Button>
           </div>
-        </div>
+        )}
       </Modal>
     </div>
   );

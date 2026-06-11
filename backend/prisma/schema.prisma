@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum SeatType {
+  TABLE
+  COUNTER
+  PRIVATE
+}
+
+enum SessionStatus {
+  GUIDED
+  ORDERING
+  BILLING
+  CLEANING
+  CLOSED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEOUT
+}
+
+enum OrderStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  PENDING
+  COOKING
+  SERVED
+  CANCELLED
+}
+
+enum TaxType {
+  STANDARD_10
+  REDUCED_8
+}
+
+enum DiscountType {
+  FIXED
+  PERCENTAGE
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  QR
+}
+
+enum TakeoutStatus {
+  RECEIVED
+  PREPARING
+  READY
+  PICKED_UP
+  CANCELLED
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  username      String   @db.VarChar(50)
+  email         String   @unique @db.VarChar(255)
+  password_hash String   @db.VarChar(255)
+  role          UserRole @default(STAFF)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Seat {
+  id          String        @id @default(uuid()) @db.Uuid
+  seat_number String        @unique @db.VarChar(20)
+  seat_type   SeatType      @default(TABLE)
+  capacity    Int           @default(4)
+  sort_order  Int           @default(0)
+  is_active   Boolean       @default(true)
+  sessions    SeatSession[]
+
+  @@map("seats")
+}
+
+model SeatSession {
+  id         String        @id @default(uuid()) @db.Uuid
+  seat_id    String        @db.Uuid
+  seat       Seat          @relation(fields: [seat_id], references: [id])
+  status     SessionStatus @default(GUIDED)
+  party_size Int
+  seated_at  DateTime      @default(now())
+  closed_at  DateTime?
+  orders     Order[]
+
+  @@index([seat_id, status])
+  @@map("seat_sessions")
+}
+
+model MenuCategory {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String     @db.VarChar(100)
+  sort_order Int        @default(0)
+  is_active  Boolean    @default(true)
+  items      MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id           String       @id @default(uuid()) @db.Uuid
+  category_id  String       @db.Uuid
+  category     MenuCategory @relation(fields: [category_id], references: [id])
+  name         String       @db.VarChar(100)
+  price        Decimal      @db.Decimal(10, 2)
+  tax_type     TaxType      @default(STANDARD_10)
+  is_available Boolean      @default(true)
+  sort_order   Int          @default(0)
+  order_items  OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id               String        @id @default(uuid()) @db.Uuid
+  order_number     Int           @unique @default(autoincrement())
+  order_type       OrderType
+  status           OrderStatus   @default(OPEN)
+  session_id       String?       @db.Uuid
+  session          SeatSession?  @relation(fields: [session_id], references: [id])
+  takeout_id       String?       @db.Uuid
+  takeout          TakeoutOrder? @relation(fields: [takeout_id], references: [id])
+  subtotal         Decimal       @default(0) @db.Decimal(10, 2)
+  tax_amount       Decimal       @default(0) @db.Decimal(10, 2)
+  total_amount     Decimal       @default(0) @db.Decimal(10, 2)
+  payment_id       String?       @db.Uuid
+  payment          Payment?      @relation(fields: [payment_id], references: [id])
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+  items            OrderItem[]
+
+  @@index([status, created_at])
+  @@index([session_id])
+  @@index([takeout_id])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String          @id @default(uuid()) @db.Uuid
+  order_id     String          @db.Uuid
+  order        Order           @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menu_item_id String?         @db.Uuid
+  menu_item    MenuItem?       @relation(fields: [menu_item_id], references: [id])
+  item_name    String          @db.VarChar(100)
+  unit_price   Decimal         @db.Decimal(10, 2)
+  quantity     Int
+  tax_rate     Decimal         @db.Decimal(5, 4)
+  status       OrderItemStatus @default(PENDING)
+  notes        String?         @db.VarChar(255)
+
+  @@index([order_id])
+  @@map("order_items")
+}
+
+model Payment {
+  id               String        @id @default(uuid()) @db.Uuid
+  total_amount     Decimal       @db.Decimal(10, 2)
+  tax_amount       Decimal       @default(0) @db.Decimal(10, 2)
+  discount_type    DiscountType?
+  discount_value   Decimal       @default(0) @db.Decimal(10, 2)
+  discount_applied Decimal       @default(0) @db.Decimal(10, 2)
+  change_amount    Decimal       @default(0) @db.Decimal(10, 2)
+  receipt_issued Boolean       @default(true)
+  created_by     String?       @db.Uuid
+  created_at     DateTime      @default(now())
+  lines          PaymentLine[]
+  orders         Order[]
+
+  @@index([created_at])
+  @@map("payments")
+}
+
+model PaymentLine {
+  id              String        @id @default(uuid()) @db.Uuid
+  payment_id      String        @db.Uuid
+  payment         Payment       @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  method          PaymentMethod
+  amount          Decimal       @db.Decimal(10, 2)
+  received_amount Decimal?      @db.Decimal(10, 2)
+
+  @@index([payment_id])
+  @@map("payment_lines")
+}
+
+model TakeoutOrder {
+  id            String        @id @default(uuid()) @db.Uuid
+  customer_name String        @db.VarChar(100)
+  phone_number  String        @db.VarChar(20)
+  pickup_at     DateTime
+  status        TakeoutStatus @default(RECEIVED)
+  notes         String?       @db.VarChar(255)
+  created_at    DateTime      @default(now())
+  orders        Order[]
+
+  @@index([status, pickup_at])
+  @@map("takeout_orders")
+}
+
+model Setting {
+  key   String @id @db.VarChar(50)
+  value String @db.VarChar(255)
+
+  @@map("settings")
+}

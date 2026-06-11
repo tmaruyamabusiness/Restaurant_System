@@ -1,5 +1,5 @@
 {
-  "name": "restaurant-frontend",
+  "name": "@oms/frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,11 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.21",
+    "@oms/shared": "1.0.0",
+    "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zustand": "^4.5.5",
-    "socket.io-client": "^4.7.5"
+    "socket.io-client": "^4.7.5",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",

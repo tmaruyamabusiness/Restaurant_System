@@ -1,127 +1,158 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Header from "@/components/layout/Header";
+import PaymentForm from "@/components/billing/PaymentForm";
+import TakeoutCard from "@/components/takeout/TakeoutCard";
+import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import { useTakeoutStore } from "@/stores/takeoutStore";
-import { TakeoutStatus } from "@/types";
-import { api } from "@/lib/api";
-import Header from "@/components/layout/Header";
-import Button from "@/components/ui/Button";
-import TakeoutCard from "@/components/takeout/TakeoutCard";
-import { cn } from "@/lib/utils";
+import { toast, withToast } from "@/stores/toastStore";
+import { PricedItem, TakeoutResponse, TakeoutStatus } from "@/types";
 
-const statusFilters: { value: TakeoutStatus | "ALL"; label: string }[] = [
-  { value: "ALL", label: "すべて" },
-  { value: "RECEIVED", label: "受付済" },
-  { value: "PREPARING", label: "調理中" },
-  { value: "READY", label: "受渡準備完了" },
-  { value: "PICKED_UP", label: "受取済" },
-];
+type Tab = "ACTIVE" | "DONE";
 
-export default function TakeoutListPage() {
+export default function TakeoutPage() {
   const router = useRouter();
-  const { token } = useAuthStore();
-  const { takeoutOrders, loading, fetchTakeoutOrders, updateTakeoutOrder } = useTakeoutStore();
-  const [filter, setFilter] = useState<TakeoutStatus | "ALL">("ALL");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { isAuthenticated } = useAuthStore();
+  const { orders, loading, fetchOrders, applyTakeout } = useTakeoutStore();
+  const [tab, setTab] = useState<Tab>("ACTIVE");
+  const [payTarget, setPayTarget] = useState<TakeoutResponse | null>(null);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
-    if (token) {
-      fetchTakeoutOrders(token);
-    }
-  }, [token, fetchTakeoutOrders]);
+    if (!isAuthenticated) return;
+    withToast(() => fetchOrders());
+    const interval = setInterval(() => fetchOrders().catch(() => undefined), 60000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, fetchOrders]);
 
-  const handleStatusChange = async (id: string, status: TakeoutStatus) => {
-    if (!token) return;
-    try {
-      const updated = await api.updateTakeoutStatus(id, status, token);
-      updateTakeoutOrder(updated);
-    } catch {
-      // handle error
+  const handleChangeStatus = async (takeout: TakeoutResponse, status: TakeoutStatus) => {
+    const updated = await withToast(() => api.changeTakeoutStatus(takeout.id, status));
+    if (updated) {
+      applyTakeout(updated);
+      if (status === "PICKED_UP") toast.success(`${takeout.customer_name} 様に受け渡しました`);
     }
   };
 
-  const filtered =
-    filter === "ALL"
-      ? takeoutOrders
-      : takeoutOrders.filter((o) => o.status === filter);
-
-  const sorted = [...filtered].sort(
-    (a, b) => new Date(a.pickup_time).getTime() - new Date(b.pickup_time).getTime()
+  const payItems: PricedItem[] = useMemo(
+    () =>
+      (payTarget?.orders ?? [])
+        .filter((o) => o.status === "OPEN")
+        .flatMap((o) =>
+          o.items.map((i) => ({
+            unit_price: i.unit_price,
+            quantity: i.quantity,
+            tax_rate: i.tax_rate,
+            status: i.status,
+          }))
+        ),
+    [payTarget]
   );
 
-  const statusCounts = takeoutOrders.reduce(
-    (acc, o) => {
-      acc[o.status] = (acc[o.status] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
+  const visible = useMemo(() => {
+    const list = orders.filter((o) =>
+      tab === "ACTIVE"
+        ? o.status === "RECEIVED" || o.status === "PREPARING" || o.status === "READY"
+        : o.status === "PICKED_UP" || o.status === "CANCELLED"
+    );
+    return [...list].sort(
+      (a, b) => new Date(a.pickup_at).getTime() - new Date(b.pickup_at).getTime()
+    );
+  }, [orders, tab]);
+
+  const activeCount = orders.filter(
+    (o) => o.status === "RECEIVED" || o.status === "PREPARING" || o.status === "READY"
+  ).length;
 
   return (
     <div>
       <Header
-        title="テイクアウト注文"
-        subtitle={`${takeoutOrders.length}件の注文`}
-        actions={
-          <Button onClick={() => router.push("/takeout/new")}>
-            + テイクアウト新規
-          </Button>
-        }
+        title="テイクアウト管理"
+        subtitle={`進行中 ${activeCount}件`}
+        actions={<Button onClick={() => router.push("/takeout/new")}>+ 新規注文</Button>}
       />
 
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {statusFilters.map((sf) => (
+      <div className="mb-4 flex gap-2">
+        {(
+          [
+            { key: "ACTIVE", label: `進行中 ${activeCount}` },
+            { key: "DONE", label: "受渡済・キャンセル" },
+          ] as { key: Tab; label: string }[]
+        ).map((t) => (
           <button
-            key={sf.value}
-            onClick={() => setFilter(sf.value)}
+            key={t.key}
+            onClick={() => setTab(t.key)}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors min-h-[44px] relative",
-              filter === sf.value
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              "min-h-[40px] rounded-full border px-4 text-[13px]",
+              tab === t.key
+                ? "border-slate-900 bg-slate-900 font-bold text-white"
+                : "border-gray-300 bg-white text-gray-600"
             )}
           >
-            {sf.label}
-            {sf.value !== "ALL" && statusCounts[sf.value] ? (
-              <span
-                className={cn(
-                  "ml-2 px-1.5 py-0.5 rounded-full text-xs",
-                  filter === sf.value ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-600"
-                )}
-              >
-                {statusCounts[sf.value]}
-              </span>
-            ) : null}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {loading && takeoutOrders.length === 0 ? (
+      {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-blue-600" />
         </div>
-      ) : sorted.length === 0 ? (
-        <div className="text-center py-20">
-          <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-          <p className="text-gray-500">テイクアウト注文がありません</p>
-        </div>
+      ) : visible.length === 0 ? (
+        <p className="py-16 text-center text-gray-400">該当する注文はありません</p>
       ) : (
-        <div className="space-y-3 max-w-3xl">
-          {sorted.map((order) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {visible.map((t) => (
             <TakeoutCard
-              key={order.id}
-              order={order}
-              expanded={expandedId === order.id}
-              onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
-              onStatusChange={handleStatusChange}
+              key={t.id}
+              takeout={t}
+              onChangeStatus={handleChangeStatus}
+              onPay={setPayTarget}
             />
           ))}
         </div>
       )}
+
+      <Modal
+        isOpen={!!payTarget}
+        onClose={() => setPayTarget(null)}
+        title={`会計 — ${payTarget?.customer_name ?? ""} 様`}
+        className="max-w-xl"
+      >
+        {payTarget && (
+          <PaymentForm
+            items={payItems}
+            loading={paying}
+            onSubmit={async (data) => {
+              const openOrder = payTarget.orders.find((o) => o.status === "OPEN");
+              if (!openOrder) return;
+              setPaying(true);
+              const payment = await withToast(() =>
+                api.createPayment({
+                  order_id: openOrder.id,
+                  lines: data.lines,
+                  discount: data.discount,
+                  receipt_issued: data.receipt_issued,
+                })
+              );
+              if (payment) {
+                const updated = await withToast(() =>
+                  api.changeTakeoutStatus(payTarget.id, "PICKED_UP")
+                );
+                if (updated) applyTakeout(updated);
+                toast.success("会計が完了し、受け渡し済みにしました");
+                setPayTarget(null);
+              }
+              setPaying(false);
+            }}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
