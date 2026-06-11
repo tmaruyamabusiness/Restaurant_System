@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一ブランチで新しい push が来たら古い実行はキャンセルする
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (shared / backend / frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build shared schema
+        run: npm run build:shared
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+      - name: Build backend (tsc typecheck)
+        run: npm run build:backend
+      - name: Build frontend (next build / typecheck)
+        run: npm run build:frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+  e2e:
+    name: Backend E2E smoke test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: restaurant_oms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/restaurant_oms
+      SECRET_KEY: ci-test-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build shared schema
+        run: npm run build:shared
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+      - name: Apply migrations
+        run: npm run prisma:migrate
+      - name: Build backend
+        run: npm run build:backend
+      - name: Seed database
+        run: node backend/dist/seed.js
+      - name: Start backend
+        run: |
+          node backend/dist/main.js > backend.log 2>&1 &
+          echo $! > backend.pid
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "backend ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "backend did not become healthy in time"
+          cat backend.log
+          exit 1
+      - name: Run smoke test
+        run: npm run test:smoke
+      - name: Backend logs on failure
+        if: failure()
+        run: cat backend.log || true

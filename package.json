@@ -12,6 +12,9 @@
     "build:backend": "npm run build -w backend",
     "build:frontend": "npm run build -w frontend",
     "dev:backend": "npm run start:dev -w backend",
-    "dev:frontend": "npm run dev -w frontend"
+    "dev:frontend": "npm run dev -w frontend",
+    "prisma:generate": "prisma generate --schema backend/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate deploy --schema backend/prisma/schema.prisma",
+    "test:smoke": "node backend/test/smoke.mjs"
   }
 }
