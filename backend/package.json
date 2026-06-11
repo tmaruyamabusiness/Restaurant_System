@@ -7,7 +7,8 @@
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts",
     "prisma:generate": "prisma generate",
-    "seed": "node dist/seed.js"
+    "seed": "node dist/seed.js",
+    "test:smoke": "node test/smoke.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.10",
