@@ -14,6 +14,10 @@ jobs:
   build:
     name: Build (shared / backend / frontend)
     runs-on: ubuntu-latest
+    # prisma generate は Prisma 5 では DB へ接続しないが、将来のバージョンで
+    # datasource の env 解決が必要になった場合に備えたプレースホルダ(接続はしない)
+    env:
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
