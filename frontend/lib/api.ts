@@ -104,6 +104,8 @@ export const api = {
     request<SeatResponse>(`/api/seats/${id}/guide`, { method: "POST", json: body }),
   changeSeatStatus: (id: string, status: SeatStatus) =>
     request<SeatResponse>(`/api/seats/${id}/status`, { method: "POST", json: { status } }),
+  resumeOrdering: (id: string) =>
+    request<SeatResponse>(`/api/seats/${id}/resume-ordering`, { method: "POST" }),
 
   // ---- menu ----
   getMenu: (includeInactive = false) =>

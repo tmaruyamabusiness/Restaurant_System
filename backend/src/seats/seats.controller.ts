@@ -54,4 +54,9 @@ export class SeatsController {
   ): Promise<SeatResponse> {
     return this.seats.changeStatus(id, body.status);
   }
+
+  @Post(":id/resume-ordering")
+  resumeOrdering(@Param("id", ParseUUIDPipe) id: string): Promise<SeatResponse> {
+    return this.seats.resumeOrdering(id);
+  }
 }

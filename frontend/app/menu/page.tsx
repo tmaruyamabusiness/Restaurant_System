@@ -132,11 +132,11 @@ export default function MenuPage() {
               selectedCategory === cat.id
                 ? "border-blue-600 bg-blue-600 font-bold text-white"
                 : "border-gray-200 bg-white text-gray-600",
-              !cat.is_active && "opacity-50"
+              !cat.is_active && "border-dashed"
             )}
           >
             {cat.name}
-            <span className="ml-1.5 text-[11px] opacity-70">{cat.items?.length ?? 0}</span>
+            <span className="ml-1.5 text-[11px]">{cat.items?.length ?? 0}</span>
           </button>
         ))}
       </div>
@@ -172,7 +172,7 @@ export default function MenuPage() {
             )}
           </div>
           {(current.items ?? []).length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">商品がありません</p>
+            <p className="py-8 text-center text-sm text-gray-600">商品がありません</p>
           ) : (
             <div className="divide-y divide-gray-50">
               {(current.items ?? []).map((item) => (
@@ -181,12 +181,12 @@ export default function MenuPage() {
                     <p
                       className={cn(
                         "text-sm font-semibold text-gray-900",
-                        !item.is_available && "text-gray-400 line-through"
+                        !item.is_available && "text-gray-600 line-through"
                       )}
                     >
                       {item.name}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       {item.tax_type === "STANDARD_10" ? "標準税率 10%" : "軽減税率 8%"}
                     </p>
                   </div>

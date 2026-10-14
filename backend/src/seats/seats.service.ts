@@ -9,6 +9,7 @@ import { SeatResponse, SeatStatus } from "@oms/shared";
 import { EventsGateway } from "../events/events.gateway";
 import { toSeat } from "../common/serializers";
 import { PrismaService } from "../prisma.service";
+import { lockOrderParent } from "../common/transactions";
 
 const SESSION_INCLUDE = {
   orders: { select: { status: true, total_amount: true } },
@@ -18,7 +19,7 @@ const SESSION_INCLUDE = {
 const TRANSITIONS: Record<string, SeatStatus[]> = {
   GUIDED: ["ORDERING", "BILLING"],
   ORDERING: ["BILLING"],
-  BILLING: ["CLEANING"],
+  BILLING: ["GUIDED", "ORDERING", "CLEANING"],
   CLEANING: ["VACANT"],
 };
 
@@ -126,28 +127,52 @@ export class SeatsService {
     return seat;
   }
 
-  async changeStatus(seatId: string, target: SeatStatus): Promise<SeatResponse> {
+  async resumeOrdering(seatId: string): Promise<SeatResponse> {
+    return this.changeStatus(seatId, "RESUME_ORDERING");
+  }
+
+  async changeStatus(seatId: string, target: SeatStatus | "RESUME_ORDERING"): Promise<SeatResponse> {
     await this.prisma.$transaction(async (tx) => {
-      const session = await tx.seatSession.findFirst({
+      let session = await tx.seatSession.findFirst({
         where: { seat_id: seatId, status: { not: "CLOSED" } },
         orderBy: { seated_at: "desc" },
       });
       if (!session) {
         throw new BadRequestException("利用中のセッションがありません(案内は guide を使用)");
       }
+      await lockOrderParent(tx, { session_id: session.id });
+      session = await tx.seatSession.findUniqueOrThrow({ where: { id: session.id } });
+      const openOrders = await tx.order.count({
+        where: { session_id: session.id, status: "OPEN" },
+      });
+      if (target === "RESUME_ORDERING") {
+        if (session.status === "GUIDED" || session.status === "ORDERING") return;
+        if (session.status !== "BILLING") {
+          throw new BadRequestException("会計済みのセッションでは注文を再開できません");
+        }
+        target = openOrders > 0 ? "ORDERING" : "GUIDED";
+      }
+      if (session.status === target) return;
       const allowed = TRANSITIONS[session.status] ?? [];
       if (!allowed.includes(target)) {
         throw new BadRequestException(
           `${session.status} から ${target} へは変更できません(許可: ${allowed.join(", ") || "なし"})`
         );
       }
-      if (target === "BILLING" || target === "VACANT") {
-        const openOrders = await tx.order.count({
-          where: { session_id: session.id, status: "OPEN" },
+      if ((target === "VACANT" || target === "CLEANING") && openOrders > 0) {
+        throw new BadRequestException("未会計の注文が残っています");
+      }
+      if (target === "GUIDED" && openOrders > 0) {
+        throw new BadRequestException("注文済みのセッションは案内済みに戻せません");
+      }
+      if (target === "VACANT") {
+        const unfinished = await tx.orderItem.count({
+          where: {
+            order: { session_id: session.id, status: { not: "CANCELLED" } },
+            status: { in: ["PENDING", "COOKING"] },
+          },
         });
-        if (target === "VACANT" && openOrders > 0) {
-          throw new BadRequestException("未会計の注文が残っています");
-        }
+        if (unfinished > 0) throw new BadRequestException("未提供の商品が残っています");
       }
       if (target === "VACANT") {
         await tx.seatSession.update({

@@ -115,7 +115,7 @@ export default function ReportsPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-4">
               <h3 className="mb-3 text-sm font-semibold text-gray-900">時間帯別売上（日本時間）</h3>
               {daily.by_hour.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">データがありません</p>
+                <p className="py-8 text-center text-sm text-gray-600">データがありません</p>
               ) : (
                 <div className="space-y-1.5">
                   {daily.by_hour.map((h) => (
@@ -140,7 +140,7 @@ export default function ReportsPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-gray-900">支払方法別</h3>
                 {daily.by_payment_method.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-gray-400">データがありません</p>
+                  <p className="py-4 text-center text-sm text-gray-600">データがありません</p>
                 ) : (
                   daily.by_payment_method.map((m) => (
                     <div key={m.method} className="flex justify-between py-1.5 text-sm">
@@ -155,13 +155,13 @@ export default function ReportsPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-gray-900">人気商品 TOP10</h3>
                 {daily.top_items.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-gray-400">データがありません</p>
+                  <p className="py-4 text-center text-sm text-gray-600">データがありません</p>
                 ) : (
                   daily.top_items.map((item, i) => (
                     <div key={item.name} className="flex items-center gap-2 py-1.5 text-sm">
-                      <span className="w-6 font-bold text-gray-400">{i + 1}</span>
+                      <span className="w-6 font-bold text-gray-600">{i + 1}</span>
                       <span className="flex-1 text-gray-700">{item.name}</span>
-                      <span className="text-xs text-gray-400">×{item.quantity}</span>
+                      <span className="text-xs text-gray-600">×{item.quantity}</span>
                       <b className="w-20 text-right">{formatCurrency(item.amount)}</b>
                     </div>
                   ))
@@ -187,7 +187,7 @@ export default function ReportsPage() {
           <div className="rounded-xl border border-gray-200 bg-white p-4">
             <h3 className="mb-3 text-sm font-semibold text-gray-900">日別売上</h3>
             {monthly.by_day.length === 0 ? (
-              <p className="py-8 text-center text-sm text-gray-400">データがありません</p>
+              <p className="py-8 text-center text-sm text-gray-600">データがありません</p>
             ) : (
               <div className="space-y-1.5">
                 {monthly.by_day.map((d) => (

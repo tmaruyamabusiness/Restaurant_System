@@ -11,6 +11,7 @@ import {
 import { EventsGateway } from "../events/events.gateway";
 import { ORDER_INCLUDE, toOrder } from "../common/serializers";
 import { PrismaService } from "../prisma.service";
+import { lockOrderParent } from "../common/transactions";
 import { SeatsService } from "../seats/seats.service";
 
 const ITEM_TRANSITIONS: Record<OrderItemStatus, OrderItemStatus[]> = {
@@ -36,6 +37,13 @@ export class OrdersService {
 
   async create(data: OrderCreateRequest): Promise<OrderResponse> {
     const orderId = await this.prisma.$transaction(async (tx) => {
+      if (
+        (data.order_type === "DINE_IN" && data.takeout_id) ||
+        (data.order_type === "TAKEOUT" && data.session_id)
+      ) {
+        throw new BadRequestException("注文種別と紐付け先が一致していません");
+      }
+      await lockOrderParent(tx, data);
       if (data.order_type === "DINE_IN") {
         if (!data.session_id) throw new BadRequestException("店内注文には session_id が必要です");
         const session = await tx.seatSession.findUnique({ where: { id: data.session_id } });
@@ -127,7 +135,11 @@ export class OrdersService {
   async kdsList(): Promise<OrderResponse[]> {
     const orders = await this.prisma.order.findMany({
       where: {
-        status: "OPEN",
+        status: { not: "CANCELLED" },
+        OR: [
+          { takeout_id: null },
+          { takeout: { is: { status: { not: "CANCELLED" } } } },
+        ],
         items: { some: { status: { in: ["PENDING", "COOKING"] } } },
       },
       orderBy: { created_at: "asc" },
@@ -142,13 +154,30 @@ export class OrdersService {
     data: OrderItemUpdateRequest
   ): Promise<OrderResponse> {
     await this.prisma.$transaction(async (tx) => {
+      const parent = await tx.order.findUnique({ where: { id: orderId } });
+      if (!parent) throw new NotFoundException("注文が見つかりません");
+      await lockOrderParent(tx, parent);
+      await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE`;
       const item = await tx.orderItem.findUnique({ where: { id: itemId } });
       if (!item || item.order_id !== orderId) {
         throw new NotFoundException("注文アイテムが見つかりません");
       }
       const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
-      if (order.status !== "OPEN") {
-        throw new BadRequestException("会計済み/取消済みの注文は変更できません");
+      if (order.status === "CANCELLED") {
+        throw new BadRequestException("取消済みの注文は変更できません");
+      }
+      if (order.takeout_id) {
+        const takeout = await tx.takeoutOrder.findUniqueOrThrow({ where: { id: order.takeout_id } });
+        if (takeout.status === "CANCELLED") {
+          throw new BadRequestException("取消済みのテイクアウトは変更できません");
+        }
+      }
+      if (
+        order.status === "CLOSED" &&
+        (data.quantity !== undefined || data.notes !== undefined ||
+          (data.status !== "COOKING" && data.status !== "SERVED"))
+      ) {
+        throw new BadRequestException("会計済みの注文は調理開始・提供完了のみ変更できます");
       }
       if (data.status && data.status !== item.status) {
         const allowed = ITEM_TRANSITIONS[item.status as OrderItemStatus] ?? [];
@@ -164,7 +193,7 @@ export class OrdersService {
           notes: data.notes ?? undefined,
         },
       });
-      await this.recalculate(orderId, tx);
+      if (order.status === "OPEN") await this.recalculate(orderId, tx);
     });
     const order = toOrder(await this.loadOrder(orderId));
     this.events.emit("order_item_status_changed", { order, item_id: itemId });

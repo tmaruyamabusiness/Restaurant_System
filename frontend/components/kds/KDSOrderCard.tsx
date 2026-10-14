@@ -68,14 +68,14 @@ export default function KDSOrderCard({ order, onItemStatusChange, onCompleteAll 
             {item.status === "PENDING" ? (
               <button
                 onClick={() => onItemStatusChange(item.id, "COOKING")}
-                className="min-h-[40px] whitespace-nowrap rounded-lg bg-amber-700 px-3 text-xs font-bold text-white hover:bg-amber-600"
+                className="min-h-[40px] whitespace-nowrap rounded-lg bg-amber-700 px-3 text-xs font-bold text-white hover:bg-amber-800"
               >
                 ▶ 調理開始
               </button>
             ) : (
               <button
                 onClick={() => onItemStatusChange(item.id, "SERVED")}
-                className="min-h-[40px] whitespace-nowrap rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-600"
+                className="min-h-[40px] whitespace-nowrap rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white hover:bg-emerald-800"
               >
                 ✓ 完了
               </button>

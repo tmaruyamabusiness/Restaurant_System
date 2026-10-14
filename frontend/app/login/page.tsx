@@ -74,7 +74,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 border-t border-dashed border-gray-200 pt-5">
-          <p className="mb-3 text-center text-xs text-gray-400">― デモアカウントでログイン ―</p>
+          <p className="mb-3 text-center text-xs text-gray-600">― デモアカウントでログイン ―</p>
           <div className="flex gap-2">
             {DEMO_ACCOUNTS.map((a) => (
               <button

@@ -47,10 +47,10 @@ export function formatElapsedTime(minutes: number): string {
 export function getSeatCardStyle(status: SeatStatus): string {
   const styles: Record<SeatStatus, string> = {
     VACANT: "bg-white border-gray-200 text-gray-700",
-    GUIDED: "bg-blue-500 border-blue-500 text-white",
-    ORDERING: "bg-amber-500 border-amber-500 text-white",
-    BILLING: "bg-orange-500 border-orange-500 text-white",
-    CLEANING: "bg-emerald-500 border-emerald-500 text-white",
+    GUIDED: "bg-blue-700 border-blue-700 text-white",
+    ORDERING: "bg-amber-700 border-amber-700 text-white",
+    BILLING: "bg-orange-700 border-orange-700 text-white",
+    CLEANING: "bg-emerald-700 border-emerald-700 text-white",
   };
   return styles[status];
 }
@@ -58,10 +58,10 @@ export function getSeatCardStyle(status: SeatStatus): string {
 export function getSeatStatusChip(status: SeatStatus): string {
   const styles: Record<SeatStatus, string> = {
     VACANT: "bg-white border border-gray-300 text-gray-600",
-    GUIDED: "bg-blue-500 text-white",
-    ORDERING: "bg-amber-500 text-white",
-    BILLING: "bg-orange-500 text-white",
-    CLEANING: "bg-emerald-500 text-white",
+    GUIDED: "bg-blue-700 text-white",
+    ORDERING: "bg-amber-700 text-white",
+    BILLING: "bg-orange-700 text-white",
+    CLEANING: "bg-emerald-700 text-white",
   };
   return styles[status];
 }

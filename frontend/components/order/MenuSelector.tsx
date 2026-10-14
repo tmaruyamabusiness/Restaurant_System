@@ -192,7 +192,7 @@ export default function MenuSelector({
             );
           })}
           {visibleItems.length === 0 && (
-            <p className="col-span-full py-8 text-center text-sm text-gray-400">
+            <p className="col-span-full py-8 text-center text-sm text-gray-600">
               {search.trim() ? "該当する商品がありません" : "このカテゴリに商品がありません"}
             </p>
           )}
@@ -205,7 +205,7 @@ export default function MenuSelector({
         </h4>
         <div className="max-h-[300px] space-y-1 overflow-y-auto">
           {selected.length === 0 && (
-            <p className="py-6 text-center text-xs text-gray-400">
+            <p className="py-6 text-center text-xs text-gray-600">
               左の一覧から商品をタップしてください
             </p>
           )}

@@ -5,6 +5,7 @@ import { EventsGateway } from "../events/events.gateway";
 import { toPayment, toTakeout, TAKEOUT_INCLUDE } from "../common/serializers";
 import { PrismaService } from "../prisma.service";
 import { SeatsService } from "../seats/seats.service";
+import { lockOrderParent } from "../common/transactions";
 
 @Injectable()
 export class PaymentsService {
@@ -24,7 +25,13 @@ export class PaymentsService {
         // 対象注文を行ロックして二重会計を防ぐ
         let orders;
         if (req.session_id) {
-          await tx.$queryRaw`SELECT id FROM orders WHERE session_id = ${req.session_id}::uuid FOR UPDATE`;
+          await lockOrderParent(tx, { session_id: req.session_id });
+          const session = await tx.seatSession.findUnique({ where: { id: req.session_id } });
+          if (!session) throw new NotFoundException("セッションが見つかりません");
+          if (session.status === "CLOSED" || session.status === "CLEANING") {
+            throw new BadRequestException("このセッションは既に会計済みです");
+          }
+          await tx.$queryRaw`SELECT id FROM orders WHERE session_id = ${req.session_id}::uuid ORDER BY id FOR UPDATE`;
           orders = await tx.order.findMany({
             where: { session_id: req.session_id, status: "OPEN" },
             include: { items: true },
@@ -32,7 +39,23 @@ export class PaymentsService {
           if (orders.length === 0) {
             throw new BadRequestException("会計対象の注文がありません(既に会計済みの可能性)");
           }
+        } else if (req.takeout_id) {
+          await lockOrderParent(tx, { takeout_id: req.takeout_id });
+          await this.requireActiveTakeout(tx, req.takeout_id);
+          await tx.$queryRaw`SELECT id FROM orders WHERE takeout_id = ${req.takeout_id}::uuid ORDER BY id FOR UPDATE`;
+          orders = await tx.order.findMany({
+            where: { takeout_id: req.takeout_id, status: "OPEN" },
+            include: { items: true },
+          });
+          if (orders.length === 0) throw new BadRequestException("会計対象の注文がありません");
         } else {
+          const parent = await tx.order.findUnique({ where: { id: req.order_id! } });
+          if (!parent) throw new NotFoundException("注文が見つかりません");
+          if (!parent.takeout_id || parent.order_type !== "TAKEOUT") {
+            throw new BadRequestException("店内注文の会計は session_id を指定してください");
+          }
+          await lockOrderParent(tx, parent);
+          await this.requireActiveTakeout(tx, parent.takeout_id);
           await tx.$queryRaw`SELECT id FROM orders WHERE id = ${req.order_id}::uuid FOR UPDATE`;
           const order = await tx.order.findUnique({
             where: { id: req.order_id! },
@@ -146,5 +169,13 @@ export class PaymentsService {
       include: { lines: true, orders: true },
     });
     return toPayment(payment);
+  }
+
+  private async requireActiveTakeout(tx: Prisma.TransactionClient, id: string): Promise<void> {
+    const takeout = await tx.takeoutOrder.findUnique({ where: { id } });
+    if (!takeout) throw new NotFoundException("テイクアウトが見つかりません");
+    if (takeout.status === "CANCELLED" || takeout.status === "PICKED_UP") {
+      throw new BadRequestException("取消済み・受渡済みのテイクアウトは会計できません");
+    }
   }
 }

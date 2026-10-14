@@ -42,7 +42,7 @@ function Stepper({ status }: { status: string }) {
                 "flex items-center gap-1.5 text-xs",
                 state === "now" && "font-bold text-blue-700",
                 state === "done" && "text-emerald-700",
-                state === "todo" && "text-gray-400"
+                state === "todo" && "text-gray-600"
               )}
             >
               <span
@@ -203,7 +203,7 @@ export default function SeatDetailPage() {
                     <Button
                       variant="primary"
                       size="lg"
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
                       disabled={activeOrders.length === 0}
                       onClick={() => router.push(`/seats/${seat.id}/billing`)}
                     >
@@ -220,20 +220,40 @@ export default function SeatDetailPage() {
                   </>
                 )}
                 {seat.status === "BILLING" && (
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
-                    onClick={() => router.push(`/seats/${seat.id}/billing`)}
-                  >
-                    💴 会計画面を開く
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
+                      onClick={() => router.push(`/seats/${seat.id}/billing`)}
+                    >
+                      💴 会計画面を開く
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                      disabled={submitting}
+                      onClick={async () => {
+                        setSubmitting(true);
+                        const updated = await withToast(() => api.resumeOrdering(seat.id));
+                        setSubmitting(false);
+                        if (updated) {
+                          setSeat(updated);
+                          applySeat(updated);
+                          setShowMenu(true);
+                        }
+                      }}
+                    >
+                      注文を再開する
+                    </Button>
+                  </div>
                 )}
                 {seat.status === "CLEANING" && (
                   <Button
                     variant="primary"
                     size="lg"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
                     onClick={async () => {
                       const updated = await withToast(
                         () => api.changeSeatStatus(seat.id, "VACANT"),
@@ -268,7 +288,7 @@ export default function SeatDetailPage() {
                 <>
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900">注文一覧</h3>
-                    <span className="text-xs text-gray-400">最新が上に表示されます</span>
+                    <span className="text-xs text-gray-600">最新が上に表示されます</span>
                   </div>
                   <OrderList orders={sessionOrders} onItemStatusChange={handleItemStatusChange} />
                   {activeOrders.length > 0 && (

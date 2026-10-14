@@ -36,6 +36,7 @@ export default function BillingPage() {
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [pending, setPending] = useState<PendingPayment | null>(null);
 
   const load = useCallback(async () => {
@@ -79,6 +80,20 @@ export default function BillingPage() {
 
   const baseTotals = useMemo(() => computeTotals(items), [items]);
 
+  const returnToOrders = async () => {
+    if (submitting || resuming) return;
+    setResuming(true);
+    if (seat?.status === "BILLING") {
+      const updated = await withToast(() => api.resumeOrdering(seatId));
+      if (!updated) {
+        setResuming(false);
+        return;
+      }
+      applySeat(updated);
+    }
+    router.push(`/seats/${seatId}`);
+  };
+
   const confirmPayment = async () => {
     if (!pending || !seat?.current_session) return;
     setSubmitting(true);
@@ -114,7 +129,7 @@ export default function BillingPage() {
     return (
       <div className="py-20 text-center">
         <p className="text-gray-500">会計対象の注文がありません</p>
-        <Button onClick={() => router.push(`/seats/${seatId}`)} className="mt-4">
+        <Button onClick={returnToOrders} disabled={resuming || submitting} className="mt-4">
           席詳細に戻る
         </Button>
       </div>
@@ -132,7 +147,7 @@ export default function BillingPage() {
         title={`会計 — 席 #${seat.seat_number}`}
         subtitle={`${session.party_size}名・${formatElapsedTime(getElapsedMinutes(session.seated_at))}`}
         actions={
-          <Button variant="ghost" onClick={() => router.push(`/seats/${seatId}`)}>
+          <Button variant="ghost" onClick={returnToOrders} disabled={resuming || submitting}>
             ← 席詳細に戻る
           </Button>
         }
@@ -166,7 +181,7 @@ export default function BillingPage() {
               <span>合計</span>
               <span>{formatCurrency(baseTotals.total_amount)}</span>
             </div>
-            <p className="pt-1 text-[11px] text-gray-400">
+            <p className="pt-1 text-[11px] text-gray-600">
               ※ 値引きを入力すると右側の請求額に反映されます
             </p>
           </div>
@@ -186,7 +201,7 @@ export default function BillingPage() {
                   <span className="text-gray-600">
                     {l.method === "CASH" ? "現金" : l.method === "CREDIT_CARD" ? "クレジットカード" : "QR決済"}
                     {l.received_amount != null && l.received_amount > l.amount && (
-                      <span className="ml-1 text-xs text-gray-400">
+                      <span className="ml-1 text-xs text-gray-600">
                         （預かり {formatCurrency(l.received_amount)}）
                       </span>
                     )}
@@ -215,7 +230,7 @@ export default function BillingPage() {
               <Button
                 onClick={confirmPayment}
                 disabled={submitting}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                className="flex-1 bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
               >
                 {submitting ? "処理中..." : "確定する"}
               </Button>

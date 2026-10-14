@@ -104,7 +104,7 @@ export default function TakeoutPage() {
           <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-blue-600" />
         </div>
       ) : visible.length === 0 ? (
-        <p className="py-16 text-center text-gray-400">該当する注文はありません</p>
+        <p className="py-16 text-center text-gray-600">該当する注文はありません</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {visible.map((t) => (
@@ -129,12 +129,11 @@ export default function TakeoutPage() {
             items={payItems}
             loading={paying}
             onSubmit={async (data) => {
-              const openOrder = payTarget.orders.find((o) => o.status === "OPEN");
-              if (!openOrder) return;
+              if (!payTarget.orders.some((o) => o.status === "OPEN")) return;
               setPaying(true);
               const payment = await withToast(() =>
                 api.createPayment({
-                  order_id: openOrder.id,
+                  takeout_id: payTarget.id,
                   lines: data.lines,
                   discount: data.discount,
                   receipt_issued: data.receipt_issued,
@@ -144,8 +143,13 @@ export default function TakeoutPage() {
                 const updated = await withToast(() =>
                   api.changeTakeoutStatus(payTarget.id, "PICKED_UP")
                 );
-                if (updated) applyTakeout(updated);
-                toast.success("会計が完了し、受け渡し済みにしました");
+                if (updated) {
+                  applyTakeout(updated);
+                  toast.success("会計が完了し、受け渡し済みにしました");
+                } else {
+                  await withToast(() => fetchOrders());
+                  toast.success("会計が完了しました。受け渡し状態を確認してください");
+                }
                 setPayTarget(null);
               }
               setPaying(false);

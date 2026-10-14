@@ -75,11 +75,11 @@ export default function KDSPage() {
   );
 
   return (
-    <div className="-m-6 min-h-screen bg-slate-950 p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="-m-4 min-h-screen bg-slate-950 p-4 md:-m-6 md:p-6">
+      <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-xl font-bold text-white">👨‍🍳 キッチンディスプレイ</h1>
-          <p className="text-[13px] text-slate-500">
+          <p className="text-[13px] text-slate-400">
             調理中の注文 {active.length}件 ・ リアルタイム更新
           </p>
         </div>
@@ -90,7 +90,7 @@ export default function KDSPage() {
               "min-h-[44px] rounded-lg border px-4 text-[13px]",
               soundOn
                 ? "border-slate-600 bg-slate-800 text-slate-200"
-                : "border-slate-800 bg-slate-900 text-slate-500"
+                : "border-slate-800 bg-slate-900 text-slate-400"
             )}
           >
             {soundOn ? "🔔 音 ON" : "🔕 音 OFF"}
@@ -110,8 +110,8 @@ export default function KDSPage() {
         </div>
       ) : active.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24">
-          <p className="text-2xl font-bold text-slate-500">全て完了！</p>
-          <p className="mt-1 text-sm text-slate-600">未処理の注文はありません</p>
+          <p className="text-2xl font-bold text-slate-400">全て完了！</p>
+          <p className="mt-1 text-sm text-slate-400">未処理の注文はありません</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

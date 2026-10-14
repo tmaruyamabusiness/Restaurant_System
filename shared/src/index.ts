@@ -250,17 +250,18 @@ export const DiscountInput = z.object({
 });
 export type DiscountInput = z.infer<typeof DiscountInput>;
 
-/** Settles every OPEN order of a seat session (or a single takeout order). */
+/** Settles OPEN orders of a session/takeout; order_id keeps single-order compatibility. */
 export const PaymentCreateRequest = z
   .object({
     session_id: z.string().uuid().optional(),
     order_id: z.string().uuid().optional(),
+    takeout_id: z.string().uuid().optional(),
     lines: z.array(PaymentLineInput).min(1),
     discount: DiscountInput.optional(),
     receipt_issued: z.boolean().default(true),
   })
-  .refine((v) => !!v.session_id !== !!v.order_id, {
-    message: "session_id と order_id はどちらか一方を指定してください",
+  .refine((v) => [v.session_id, v.order_id, v.takeout_id].filter(Boolean).length === 1, {
+    message: "session_id・order_id・takeout_id のいずれか一つを指定してください",
   });
 export type PaymentCreateRequest = z.infer<typeof PaymentCreateRequest>;
 
