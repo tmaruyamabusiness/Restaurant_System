@@ -91,6 +91,8 @@ jobs:
           exit 1
       - name: Run smoke test
         run: npm run test:smoke
+      - name: Run order and payment regression tests
+        run: node backend/test/regressions.mjs
       - name: Backend logs on failure
         if: failure()
         run: cat backend.log || true

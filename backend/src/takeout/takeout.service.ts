@@ -4,6 +4,7 @@ import { EventsGateway } from "../events/events.gateway";
 import { toTakeout, TAKEOUT_INCLUDE } from "../common/serializers";
 import { OrdersService } from "../orders/orders.service";
 import { PrismaService } from "../prisma.service";
+import { lockOrderParent } from "../common/transactions";
 
 const TRANSITIONS: Record<TakeoutStatus, TakeoutStatus[]> = {
   RECEIVED: ["PREPARING", "CANCELLED"],
@@ -75,17 +76,37 @@ export class TakeoutService {
   }
 
   async changeStatus(id: string, target: TakeoutStatus): Promise<TakeoutResponse> {
-    const current = await this.load(id);
-    const allowed = TRANSITIONS[current.status] ?? [];
-    if (!allowed.includes(target)) {
-      throw new BadRequestException(
-        `${current.status} から ${target} へは変更できません(許可: ${allowed.join(", ") || "なし"})`
-      );
-    }
-    if (target === "PICKED_UP" && !current.paid) {
-      throw new BadRequestException("未会計のため受け渡しできません。先に会計してください");
-    }
-    await this.prisma.takeoutOrder.update({ where: { id }, data: { status: target } });
+    await this.prisma.$transaction(async (tx) => {
+      await lockOrderParent(tx, { takeout_id: id });
+      await tx.$queryRaw`SELECT id FROM orders WHERE takeout_id = ${id}::uuid ORDER BY id FOR UPDATE`;
+      const takeout = await tx.takeoutOrder.findUnique({ where: { id }, include: TAKEOUT_INCLUDE });
+      if (!takeout) throw new NotFoundException("テイクアウト注文が見つかりません");
+      const current = toTakeout(takeout);
+      const allowed = TRANSITIONS[current.status] ?? [];
+      if (current.status !== target && !allowed.includes(target)) {
+        throw new BadRequestException(
+          `${current.status} から ${target} へは変更できません(許可: ${allowed.join(", ") || "なし"})`
+        );
+      }
+      if (target === "PICKED_UP" && !current.paid) {
+        throw new BadRequestException("未会計のため受け渡しできません。先に会計してください");
+      }
+      if (target === "CANCELLED") {
+        if (takeout.orders.some((order) => order.status === "CLOSED")) {
+          throw new BadRequestException("会計済みの注文は取り消せません");
+        }
+        const orderIds = takeout.orders.map((order) => order.id);
+        await tx.orderItem.updateMany({
+          where: { order_id: { in: orderIds } },
+          data: { status: "CANCELLED" },
+        });
+        await tx.order.updateMany({
+          where: { id: { in: orderIds } },
+          data: { status: "CANCELLED", subtotal: 0, tax_amount: 0, total_amount: 0 },
+        });
+      }
+      await tx.takeoutOrder.update({ where: { id }, data: { status: target } });
+    });
     const result = await this.load(id);
     this.events.emit("takeout_status_changed", { takeout: result });
     return result;
