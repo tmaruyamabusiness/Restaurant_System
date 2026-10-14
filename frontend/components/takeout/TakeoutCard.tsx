@@ -75,7 +75,7 @@ export default function TakeoutCard({ takeout, onChangeStatus, onPay }: TakeoutC
       <p className="my-2.5 text-[13px] leading-relaxed text-gray-500">
         {itemSummary || "(商品なし)"} ・ <b>{formatCurrency(takeout.total_amount)}</b>
       </p>
-      {takeout.notes && <p className="mb-2 text-xs text-amber-600">備考: {takeout.notes}</p>}
+      {takeout.notes && <p className="mb-2 text-xs text-amber-700">備考: {takeout.notes}</p>}
 
       {takeout.status === "RECEIVED" && (
         <Button
@@ -88,7 +88,7 @@ export default function TakeoutCard({ takeout, onChangeStatus, onPay }: TakeoutC
       )}
       {takeout.status === "PREPARING" && (
         <Button
-          className="w-full bg-amber-600 hover:bg-amber-700 focus:ring-amber-500"
+          className="w-full bg-amber-700 hover:bg-amber-800 focus:ring-amber-600"
           onClick={() => onChangeStatus(takeout, "READY")}
         >
           調理中 — 準備完了にする
@@ -97,14 +97,14 @@ export default function TakeoutCard({ takeout, onChangeStatus, onPay }: TakeoutC
       {takeout.status === "READY" &&
         (takeout.paid ? (
           <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+            className="w-full bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
             onClick={() => onChangeStatus(takeout, "PICKED_UP")}
           >
             ✓ 受け渡し完了
           </Button>
         ) : (
           <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+            className="w-full bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
             onClick={() => onPay(takeout)}
           >
             💴 会計して受け渡し

@@ -21,7 +21,7 @@ function upsert(list: OrderResponse[], order: OrderResponse): OrderResponse[] {
 }
 
 const isActiveForKds = (o: OrderResponse) =>
-  o.status === "OPEN" && o.items.some((i) => i.status === "PENDING" || i.status === "COOKING");
+  o.status !== "CANCELLED" && o.items.some((i) => i.status === "PENDING" || i.status === "COOKING");
 
 export const useOrderStore = create<OrderState>((set, get) => ({
   sessionOrders: [],

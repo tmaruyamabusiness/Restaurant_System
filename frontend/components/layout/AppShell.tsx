@@ -53,7 +53,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       onSocketEvent("new_order", ({ order }) => applyOrder(order)),
       onSocketEvent("order_items_added", ({ order }) => applyOrder(order)),
       onSocketEvent("order_item_status_changed", ({ order }) => applyOrder(order)),
-      onSocketEvent("takeout_status_changed", ({ takeout }) => applyTakeout(takeout)),
+      onSocketEvent("takeout_status_changed", ({ takeout }) => {
+        applyTakeout(takeout);
+        takeout.orders.forEach(applyOrder);
+      }),
+      onSocketEvent("order_paid", () => {
+        useOrderStore.getState().fetchKdsOrders().catch(() => undefined);
+      }),
     ];
     return () => {
       offs.forEach((off) => off());
@@ -79,9 +85,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen md:flex">
       <Sidebar />
-      <main className="ml-60 flex-1 overflow-auto p-6">{children}</main>
+      <main className="min-w-0 p-4 md:ml-60 md:flex-1 md:p-6">{children}</main>
       <Toaster />
     </div>
   );

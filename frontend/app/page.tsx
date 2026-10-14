@@ -97,7 +97,7 @@ export default function FloorMapPage() {
         ))}
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {TYPE_FILTERS.map((f) => (
           <button
             key={f.key}
@@ -119,7 +119,7 @@ export default function FloorMapPage() {
           <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-blue-600" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {visibleSeats.map((seat) => (
             <SeatCard
               key={seat.id}

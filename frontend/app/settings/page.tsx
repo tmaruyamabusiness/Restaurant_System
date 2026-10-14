@@ -175,7 +175,7 @@ export default function SettingsPage() {
             onChange={(e) => setAlertThreshold(Math.max(1, Number(e.target.value)))}
             disabled={!canManage}
           />
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             フロアマップで滞在時間がこの分数を超えた席に赤いアラートを表示します
           </p>
           {canManage && (
@@ -236,11 +236,11 @@ export default function SettingsPage() {
             {users.map((u) => (
               <div key={u.id} className="flex items-center gap-3 py-2.5 text-sm">
                 <div className="min-w-0 flex-1">
-                  <p className={cn("font-semibold text-gray-900", !u.is_active && "text-gray-400")}>
+                  <p className={cn("font-semibold text-gray-900", !u.is_active && "text-gray-600")}>
                     {u.username}
                     {!u.is_active && <span className="ml-2 text-xs">(無効)</span>}
                   </p>
-                  <p className="text-xs text-gray-400">{u.email}</p>
+                  <p className="text-xs text-gray-600">{u.email}</p>
                 </div>
                 <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                   {getStatusLabel(u.role)}

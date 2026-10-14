@@ -90,7 +90,7 @@ export default function NewTakeoutPage() {
             <span
               className={cn(
                 "flex items-center gap-1.5 text-xs",
-                i === step ? "font-bold text-blue-700" : i < step ? "text-emerald-700" : "text-gray-400"
+                i === step ? "font-bold text-blue-700" : i < step ? "text-emerald-700" : "text-gray-600"
               )}
             >
               <span
@@ -131,7 +131,7 @@ export default function NewTakeoutPage() {
               error={phone && !isValidPhone(phone) ? "電話番号の形式が正しくありません" : undefined}
             />
             {phone && isValidPhone(phone) && (
-              <p className="mt-1 text-xs font-semibold text-emerald-600">✓ 形式チェック済み</p>
+              <p className="mt-1 text-xs font-semibold text-emerald-700">✓ 形式チェック済み</p>
             )}
           </div>
           <div>
@@ -163,7 +163,7 @@ export default function NewTakeoutPage() {
                 setQuickSel(null);
               }}
             />
-            <p className="mt-1 text-xs text-gray-400">店舗のタイムゾーン（日本時間）で指定します</p>
+            <p className="mt-1 text-xs text-gray-600">店舗のタイムゾーン（日本時間）で指定します</p>
           </div>
           <Input
             id="notes"
@@ -210,7 +210,7 @@ export default function NewTakeoutPage() {
               </div>
             ))}
           </dl>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             お支払いは受け渡し時、またはテイクアウト一覧の「会計して受け渡し」から行えます
           </p>
           <div className="flex gap-3">

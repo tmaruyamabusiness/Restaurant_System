@@ -25,13 +25,13 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 bg-sidebar-bg flex flex-col z-40">
-      <div className="px-5 py-5 border-b border-white/10">
+    <aside className="z-40 flex w-full flex-col bg-sidebar-bg md:fixed md:left-0 md:top-0 md:h-full md:w-60">
+      <div className="border-b border-white/10 px-4 py-3 md:px-5 md:py-5">
         <h1 className="text-xl font-bold text-white tracking-tight">店舗管理</h1>
         <p className="text-xs text-sidebar-text/60 mt-0.5">注文管理システム</p>
       </div>
 
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+      <nav className="grid grid-cols-3 gap-1 p-2 md:block md:flex-1 md:space-y-1 md:overflow-y-auto md:px-3 md:py-4">
         {navItems.map((item) => {
           const isActive =
             item.href === "/"
@@ -43,7 +43,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors min-h-[44px]",
+                "flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-medium transition-colors md:flex-row md:justify-start md:gap-3 md:px-3 md:py-2.5 md:text-sm",
                 isActive
                   ? "bg-sidebar-active text-white"
                   : "text-sidebar-text/80 hover:bg-sidebar-hover hover:text-white"
@@ -68,16 +68,16 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-white/10">
+      <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-2 md:block md:py-4">
         {user && (
-          <div className="mb-3">
+          <div className="min-w-0 md:mb-3">
             <p className="text-sm font-medium text-white truncate">{user.username}</p>
             <p className="text-xs text-sidebar-text/60">{getStatusLabel(user.role)}</p>
           </div>
         )}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-sidebar-text/80 hover:bg-sidebar-hover hover:text-white transition-colors min-h-[44px]"
+          className="flex min-h-[44px] shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-text/80 transition-colors hover:bg-sidebar-hover hover:text-white md:w-full"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path

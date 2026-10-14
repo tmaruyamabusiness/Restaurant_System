@@ -51,29 +51,29 @@ export default function SeatCard({
         <span>{getSeatTypeIcon(seat.seat_type)}</span>
         <span>#{seat.seat_number}</span>
       </div>
-      <p className={cn("mb-2 text-[11px]", vacant ? "text-gray-400" : "opacity-75")}>
+      <p className={cn("mb-2 text-[11px]", vacant && "text-gray-600")}>
         {getSeatTypeLabel(seat.seat_type)}・{seat.capacity}名席
       </p>
 
       {session ? (
         <div className="space-y-0.5 text-xs">
           <div className="flex justify-between">
-            <span className="opacity-80">人数</span>
+            <span>人数</span>
             <b>{session.party_size}名</b>
           </div>
           <div className="flex justify-between">
-            <span className="opacity-80">経過</span>
+            <span>経過</span>
             <b>{formatElapsedTime(elapsed)}</b>
           </div>
           {session.open_order_count > 0 && (
             <div className="flex justify-between">
-              <span className="opacity-80">注文 {session.open_order_count}件</span>
+              <span>注文 {session.open_order_count}件</span>
               <b>{formatCurrency(session.open_order_total)}</b>
             </div>
           )}
         </div>
       ) : (
-        <p className="text-xs italic text-gray-400">空席</p>
+        <p className="text-xs italic text-gray-600">空席</p>
       )}
 
       <div className="mt-auto pt-2">

@@ -16,7 +16,7 @@ const NEXT_ACTION: Partial<Record<OrderItemStatus, { to: OrderItemStatus; label:
 
 export default function OrderList({ orders, onItemStatusChange }: OrderListProps) {
   if (orders.length === 0) {
-    return <p className="py-8 text-center text-sm text-gray-400">まだ注文がありません</p>;
+    return <p className="py-8 text-center text-sm text-gray-600">まだ注文がありません</p>;
   }
 
   return (
@@ -27,7 +27,7 @@ export default function OrderList({ orders, onItemStatusChange }: OrderListProps
             <span>
               注文 #{order.order_number} ・ {formatTime(order.created_at)}
               {order.status !== "OPEN" && (
-                <span className="ml-2 font-semibold text-gray-400">
+                <span className="ml-2 font-semibold text-gray-600">
                   [{getStatusLabel(order.status)}]
                 </span>
               )}
@@ -45,12 +45,12 @@ export default function OrderList({ orders, onItemStatusChange }: OrderListProps
                   <p
                     className={cn(
                       "text-sm text-gray-900",
-                      item.status === "CANCELLED" && "text-gray-400 line-through"
+                      item.status === "CANCELLED" && "text-gray-600 line-through"
                     )}
                   >
                     {item.item_name}
                   </p>
-                  {item.notes && <p className="text-[11px] text-amber-600">備考: {item.notes}</p>}
+                  {item.notes && <p className="text-[11px] text-amber-700">備考: {item.notes}</p>}
                 </div>
                 <span className="text-[13px] text-gray-500">×{item.quantity}</span>
                 <span className="w-16 text-right text-[13px] font-semibold text-gray-700">

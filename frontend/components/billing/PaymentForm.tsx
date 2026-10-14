@@ -81,7 +81,7 @@ export default function PaymentForm({ items, onSubmit, loading }: PaymentFormPro
       {/* 値引き */}
       <div>
         <label className="mb-2 block text-sm font-medium text-gray-700">値引き</label>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2">
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["FIXED", "PERCENTAGE"] as const).map((t) => (
               <button
@@ -91,7 +91,7 @@ export default function PaymentForm({ items, onSubmit, loading }: PaymentFormPro
                   setDiscountValue(0);
                 }}
                 className={cn(
-                  "min-h-[44px] px-4 text-sm",
+                  "min-h-[44px] whitespace-nowrap px-4 text-sm",
                   discountType === t ? "bg-blue-600 font-bold text-white" : "bg-white text-gray-600"
                 )}
               >
@@ -274,7 +274,7 @@ export default function PaymentForm({ items, onSubmit, loading }: PaymentFormPro
             </Button>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">配分合計</span>
-              <b className={splitSum === total ? "text-emerald-600" : "text-red-600"}>
+              <b className={splitSum === total ? "text-emerald-700" : "text-red-600"}>
                 {formatCurrency(splitSum)} / {formatCurrency(total)}
               </b>
             </div>
@@ -296,7 +296,7 @@ export default function PaymentForm({ items, onSubmit, loading }: PaymentFormPro
         onClick={handleSubmit}
         disabled={loading || !canSubmit}
         size="lg"
-        className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+        className="w-full bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
       >
         {loading ? "処理中..." : `会計を確定する（${formatCurrency(total)}）`}
       </Button>
